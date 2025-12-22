@@ -1,14 +1,282 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState, useMemo } from 'react';
+import { useApplications } from '@/hooks/useApplications';
+import { JobApplication, ApplicationStatus, ApplicationType } from '@/types/application';
+import { StatCard } from '@/components/StatCard';
+import { ApplicationCard } from '@/components/ApplicationCard';
+import { ApplicationForm } from '@/components/ApplicationForm';
+import { SearchFilters } from '@/components/SearchFilters';
+import { EmptyState } from '@/components/EmptyState';
+import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
+import { 
+  Briefcase, 
+  Clock, 
+  MessageSquare, 
+  Trophy, 
+  Plus,
+  Loader2
+} from 'lucide-react';
 
-const Index = () => {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
+export default function Index() {
+  const { applications, isLoading, addApplication, updateApplication, deleteApplication } = useApplications();
+  const { toast } = useToast();
+
+  // Form state
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingApp, setEditingApp] = useState<JobApplication | null>(null);
+
+  // Delete confirmation state
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  // Filter state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<ApplicationStatus | 'all'>('all');
+  const [typeFilter, setTypeFilter] = useState<ApplicationType | 'all'>('all');
+  const [sortBy, setSortBy] = useState<'date' | 'company' | 'status'>('date');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+
+  // Statistics
+  const stats = useMemo(() => {
+    const total = applications.length;
+    const pending = applications.filter(a => 
+      ['Applied', 'Under Review'].includes(a.status)
+    ).length;
+    const interviews = applications.filter(a => a.status === 'Interview Stage').length;
+    const offers = applications.filter(a => 
+      ['Offer Received', 'Employed'].includes(a.status)
+    ).length;
+
+    return { total, pending, interviews, offers };
+  }, [applications]);
+
+  // Filtered and sorted applications
+  const filteredApplications = useMemo(() => {
+    let result = [...applications];
+
+    // Search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(app => 
+        app.jobTitle.toLowerCase().includes(query) ||
+        app.companyName.toLowerCase().includes(query) ||
+        app.notes?.toLowerCase().includes(query)
+      );
+    }
+
+    // Status filter
+    if (statusFilter !== 'all') {
+      result = result.filter(app => app.status === statusFilter);
+    }
+
+    // Type filter
+    if (typeFilter !== 'all') {
+      result = result.filter(app => app.applicationType === typeFilter);
+    }
+
+    // Date range filter
+    if (dateFrom) {
+      result = result.filter(app => app.dateApplied >= dateFrom);
+    }
+    if (dateTo) {
+      result = result.filter(app => app.dateApplied <= dateTo);
+    }
+
+    // Sorting
+    result.sort((a, b) => {
+      switch (sortBy) {
+        case 'date':
+          return new Date(b.dateApplied).getTime() - new Date(a.dateApplied).getTime();
+        case 'company':
+          return a.companyName.localeCompare(b.companyName);
+        case 'status':
+          return a.status.localeCompare(b.status);
+        default:
+          return 0;
+      }
+    });
+
+    return result;
+  }, [applications, searchQuery, statusFilter, typeFilter, sortBy, dateFrom, dateTo]);
+
+  const hasActiveFilters = searchQuery || statusFilter !== 'all' || typeFilter !== 'all' || dateFrom || dateTo;
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setStatusFilter('all');
+    setTypeFilter('all');
+    setDateFrom('');
+    setDateTo('');
+  };
+
+  const handleAddClick = () => {
+    setEditingApp(null);
+    setFormOpen(true);
+  };
+
+  const handleEdit = (app: JobApplication) => {
+    setEditingApp(app);
+    setFormOpen(true);
+  };
+
+  const handleFormSubmit = (data: Omit<JobApplication, 'id' | 'createdAt' | 'updatedAt'>) => {
+    if (editingApp) {
+      updateApplication(editingApp.id, data);
+      toast({
+        title: 'Application updated',
+        description: `${data.jobTitle} at ${data.companyName} has been updated.`,
+      });
+    } else {
+      addApplication(data);
+      toast({
+        title: 'Application added',
+        description: `${data.jobTitle} at ${data.companyName} has been added to your tracker.`,
+      });
+    }
+  };
+
+  const handleDeleteClick = (id: string) => {
+    setDeleteId(id);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (deleteId) {
+      deleteApplication(deleteId);
+      toast({
+        title: 'Application deleted',
+        description: 'The application has been removed from your tracker.',
+      });
+      setDeleteId(null);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
+                <Briefcase className="w-5 h-5 text-primary-foreground" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold">JobTracker</h1>
+                <p className="text-sm text-muted-foreground">Organize your job search</p>
+              </div>
+            </div>
+            <Button onClick={handleAddClick}>
+              <Plus className="w-4 h-4 mr-2" />
+              Add Application
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      <main className="container mx-auto px-4 py-8">
+        {/* Stats Dashboard */}
+        <section className="mb-8 animate-slide-up">
+          <h2 className="text-lg font-semibold mb-4">Dashboard Overview</h2>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatCard
+              title="Total Applications"
+              value={stats.total}
+              icon={Briefcase}
+            />
+            <StatCard
+              title="Pending Review"
+              value={stats.pending}
+              icon={Clock}
+              iconClassName="bg-status-review/15 text-status-review"
+            />
+            <StatCard
+              title="Interviews"
+              value={stats.interviews}
+              icon={MessageSquare}
+              iconClassName="bg-status-interview/15 text-status-interview"
+            />
+            <StatCard
+              title="Offers & Hired"
+              value={stats.offers}
+              icon={Trophy}
+              iconClassName="bg-status-employed/15 text-status-employed"
+            />
+          </div>
+        </section>
+
+        {/* Applications List */}
+        <section className="animate-slide-up" style={{ animationDelay: '0.1s' }}>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold">Your Applications</h2>
+            <span className="text-sm text-muted-foreground">
+              {filteredApplications.length} application{filteredApplications.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+
+          {applications.length > 0 && (
+            <div className="mb-6">
+              <SearchFilters
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                statusFilter={statusFilter}
+                onStatusChange={setStatusFilter}
+                typeFilter={typeFilter}
+                onTypeChange={setTypeFilter}
+                sortBy={sortBy}
+                onSortChange={setSortBy}
+                dateFrom={dateFrom}
+                dateTo={dateTo}
+                onDateFromChange={setDateFrom}
+                onDateToChange={setDateTo}
+                onClearFilters={clearFilters}
+                hasActiveFilters={!!hasActiveFilters}
+              />
+            </div>
+          )}
+
+          {applications.length === 0 ? (
+            <EmptyState onAddClick={handleAddClick} />
+          ) : filteredApplications.length === 0 ? (
+            <EmptyState onAddClick={handleAddClick} isFiltered />
+          ) : (
+            <div className="space-y-3">
+              {filteredApplications.map((app, index) => (
+                <div key={app.id} style={{ animationDelay: `${index * 0.05}s` }}>
+                  <ApplicationCard
+                    application={app}
+                    onEdit={handleEdit}
+                    onDelete={handleDeleteClick}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      </main>
+
+      {/* Application Form Modal */}
+      <ApplicationForm
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        application={editingApp}
+        onSubmit={handleFormSubmit}
+      />
+
+      {/* Delete Confirmation */}
+      <DeleteConfirmDialog
+        open={!!deleteId}
+        onOpenChange={(open) => !open && setDeleteId(null)}
+        onConfirm={handleDeleteConfirm}
+      />
     </div>
   );
-};
-
-export default Index;
+}
