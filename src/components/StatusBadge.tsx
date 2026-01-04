@@ -1,4 +1,4 @@
-import { ApplicationStatus } from '@/types/application';
+import { ApplicationStatus, statusDisplayMap } from '@/types/application';
 import { cn } from '@/lib/utils';
 
 interface StatusBadgeProps {
@@ -7,14 +7,14 @@ interface StatusBadgeProps {
 }
 
 const statusStyles: Record<ApplicationStatus, string> = {
-  'Applied': 'status-applied',
-  'Under Review': 'status-review',
-  'Interview Stage': 'status-interview',
-  'Offer Received': 'status-offer',
-  'Rejected': 'status-rejected',
-  'Employed': 'status-employed',
-  'Offer Declined': 'status-withdrawn',
-  'Withdrawn': 'status-withdrawn',
+  applied: 'status-applied',
+  under_review: 'status-review',
+  interview_stage: 'status-interview',
+  offer_received: 'status-offer',
+  rejected: 'status-rejected',
+  employed: 'status-employed',
+  offer_declined: 'status-withdrawn',
+  withdrawn: 'status-withdrawn',
 };
 
 export function StatusBadge({ status, className }: StatusBadgeProps) {
@@ -26,7 +26,7 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
         className
       )}
     >
-      {status}
+      {statusDisplayMap[status]}
     </span>
   );
 }

@@ -1,5 +1,14 @@
 import { useState, useEffect } from 'react';
-import { JobApplication, ApplicationStatus, ApplicationType, Interview, InterviewType } from '@/types/application';
+import { 
+  JobApplication, 
+  ApplicationStatus, 
+  ApplicationType, 
+  Interview, 
+  InterviewType,
+  statusDisplayMap,
+  typeDisplayMap,
+  interviewTypeDisplayMap 
+} from '@/types/application';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,30 +16,57 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Plus, Trash2, Calendar } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface ApplicationFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   application?: JobApplication | null;
-  onSubmit: (data: Omit<JobApplication, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  onSubmit: (data: {
+    jobTitle: string;
+    companyName: string;
+    companyWebsite?: string;
+    contactInfo?: string;
+    dateApplied: string;
+    applicationType: ApplicationType;
+    status: ApplicationStatus;
+    notes?: string;
+    interviews?: Array<{
+      type: InterviewType;
+      scheduledDate: string;
+      interviewerName?: string;
+      notes?: string;
+      followUp?: string;
+      completed: boolean;
+    }>;
+  }) => void;
 }
 
 const statusOptions: ApplicationStatus[] = [
-  'Applied',
-  'Under Review',
-  'Interview Stage',
-  'Offer Received',
-  'Rejected',
-  'Employed',
-  'Offer Declined',
-  'Withdrawn',
+  'applied',
+  'under_review',
+  'interview_stage',
+  'offer_received',
+  'rejected',
+  'employed',
+  'offer_declined',
+  'withdrawn',
 ];
 
-const typeOptions: ApplicationType[] = ['Job', 'Bootcamp', 'Internship', 'Freelance', 'Contract'];
+const typeOptions: ApplicationType[] = ['job', 'bootcamp', 'internship', 'freelance', 'contract', 'other'];
 
-const interviewTypes: InterviewType[] = ['Phone Screen', 'Technical', 'Behavioral', 'Final', 'HR', 'Other'];
+const interviewTypes: InterviewType[] = ['phone_screen', 'technical', 'behavioral', 'final', 'other'];
+
+interface FormInterview {
+  id: string;
+  type: InterviewType;
+  scheduledDate: string;
+  interviewerName?: string;
+  notes?: string;
+  followUp?: string;
+  completed: boolean;
+}
 
 export function ApplicationForm({ open, onOpenChange, application, onSubmit }: ApplicationFormProps) {
   const [formData, setFormData] = useState({
@@ -39,10 +75,10 @@ export function ApplicationForm({ open, onOpenChange, application, onSubmit }: A
     companyWebsite: '',
     contactInfo: '',
     dateApplied: format(new Date(), 'yyyy-MM-dd'),
-    applicationType: 'Job' as ApplicationType,
-    status: 'Applied' as ApplicationStatus,
+    applicationType: 'job' as ApplicationType,
+    status: 'applied' as ApplicationStatus,
     notes: '',
-    interviews: [] as Interview[],
+    interviews: [] as FormInterview[],
   });
 
   useEffect(() => {
@@ -56,7 +92,15 @@ export function ApplicationForm({ open, onOpenChange, application, onSubmit }: A
         applicationType: application.applicationType,
         status: application.status,
         notes: application.notes || '',
-        interviews: application.interviews || [],
+        interviews: application.interviews.map(i => ({
+          id: i.id,
+          type: i.type,
+          scheduledDate: i.scheduledDate.split('T')[0] + 'T' + (i.scheduledDate.split('T')[1]?.substring(0, 5) || '09:00'),
+          interviewerName: i.interviewerName,
+          notes: i.notes,
+          followUp: i.followUp,
+          completed: i.completed,
+        })),
       });
     } else {
       setFormData({
@@ -65,8 +109,8 @@ export function ApplicationForm({ open, onOpenChange, application, onSubmit }: A
         companyWebsite: '',
         contactInfo: '',
         dateApplied: format(new Date(), 'yyyy-MM-dd'),
-        applicationType: 'Job',
-        status: 'Applied',
+        applicationType: 'job',
+        status: 'applied',
         notes: '',
         interviews: [],
       });
@@ -75,15 +119,32 @@ export function ApplicationForm({ open, onOpenChange, application, onSubmit }: A
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(formData);
+    onSubmit({
+      jobTitle: formData.jobTitle,
+      companyName: formData.companyName,
+      companyWebsite: formData.companyWebsite || undefined,
+      contactInfo: formData.contactInfo || undefined,
+      dateApplied: formData.dateApplied,
+      applicationType: formData.applicationType,
+      status: formData.status,
+      notes: formData.notes || undefined,
+      interviews: formData.interviews.map(i => ({
+        type: i.type,
+        scheduledDate: new Date(i.scheduledDate).toISOString(),
+        interviewerName: i.interviewerName || undefined,
+        notes: i.notes || undefined,
+        followUp: i.followUp || undefined,
+        completed: i.completed,
+      })),
+    });
     onOpenChange(false);
   };
 
   const addInterview = () => {
-    const newInterview: Interview = {
+    const newInterview: FormInterview = {
       id: crypto.randomUUID(),
-      type: 'Phone Screen',
-      date: format(new Date(), 'yyyy-MM-dd'),
+      type: 'phone_screen',
+      scheduledDate: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
       completed: false,
     };
     setFormData(prev => ({
@@ -92,7 +153,7 @@ export function ApplicationForm({ open, onOpenChange, application, onSubmit }: A
     }));
   };
 
-  const updateInterview = (id: string, updates: Partial<Interview>) => {
+  const updateInterview = (id: string, updates: Partial<FormInterview>) => {
     setFormData(prev => ({
       ...prev,
       interviews: prev.interviews.map(i => i.id === id ? { ...i, ...updates } : i),
@@ -106,7 +167,7 @@ export function ApplicationForm({ open, onOpenChange, application, onSubmit }: A
     }));
   };
 
-  const showInterviews = formData.status === 'Interview Stage';
+  const showInterviews = formData.status === 'interview_stage';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -183,7 +244,7 @@ export function ApplicationForm({ open, onOpenChange, application, onSubmit }: A
                 </SelectTrigger>
                 <SelectContent>
                   {typeOptions.map(type => (
-                    <SelectItem key={type} value={type}>{type}</SelectItem>
+                    <SelectItem key={type} value={type}>{typeDisplayMap[type]}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -202,7 +263,7 @@ export function ApplicationForm({ open, onOpenChange, application, onSubmit }: A
                 </SelectTrigger>
                 <SelectContent>
                   {statusOptions.map(status => (
-                    <SelectItem key={status} value={status}>{status}</SelectItem>
+                    <SelectItem key={status} value={status}>{statusDisplayMap[status]}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -265,18 +326,18 @@ export function ApplicationForm({ open, onOpenChange, application, onSubmit }: A
                             </SelectTrigger>
                             <SelectContent>
                               {interviewTypes.map(type => (
-                                <SelectItem key={type} value={type}>{type}</SelectItem>
+                                <SelectItem key={type} value={type}>{interviewTypeDisplayMap[type]}</SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
                         </div>
 
                         <div className="space-y-1.5">
-                          <Label className="text-xs">Date</Label>
+                          <Label className="text-xs">Date & Time</Label>
                           <Input
-                            type="date"
-                            value={interview.date}
-                            onChange={e => updateInterview(interview.id, { date: e.target.value })}
+                            type="datetime-local"
+                            value={interview.scheduledDate}
+                            onChange={e => updateInterview(interview.id, { scheduledDate: e.target.value })}
                             className="h-9"
                           />
                         </div>
