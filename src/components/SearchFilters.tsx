@@ -1,8 +1,7 @@
-import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { ApplicationStatus, ApplicationType } from '@/types/application';
+import { ApplicationStatus, ApplicationType, statusDisplayMap, typeDisplayMap } from '@/types/application';
 import { Search, X, SlidersHorizontal } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
@@ -26,17 +25,17 @@ interface SearchFiltersProps {
 
 const statusOptions: (ApplicationStatus | 'all')[] = [
   'all',
-  'Applied',
-  'Under Review',
-  'Interview Stage',
-  'Offer Received',
-  'Rejected',
-  'Employed',
-  'Offer Declined',
-  'Withdrawn',
+  'applied',
+  'under_review',
+  'interview_stage',
+  'offer_received',
+  'rejected',
+  'employed',
+  'offer_declined',
+  'withdrawn',
 ];
 
-const typeOptions: (ApplicationType | 'all')[] = ['all', 'Job', 'Bootcamp', 'Internship', 'Freelance', 'Contract'];
+const typeOptions: (ApplicationType | 'all')[] = ['all', 'job', 'bootcamp', 'internship', 'freelance', 'contract', 'other'];
 
 export function SearchFilters({
   searchQuery,
@@ -74,7 +73,7 @@ export function SearchFilters({
           <SelectContent>
             {statusOptions.map(status => (
               <SelectItem key={status} value={status}>
-                {status === 'all' ? 'All Statuses' : status}
+                {status === 'all' ? 'All Statuses' : statusDisplayMap[status]}
               </SelectItem>
             ))}
           </SelectContent>
@@ -87,7 +86,7 @@ export function SearchFilters({
           <SelectContent>
             {typeOptions.map(type => (
               <SelectItem key={type} value={type}>
-                {type === 'all' ? 'All Types' : type}
+                {type === 'all' ? 'All Types' : typeDisplayMap[type]}
               </SelectItem>
             ))}
           </SelectContent>

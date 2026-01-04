@@ -1,9 +1,9 @@
-import { JobApplication } from '@/types/application';
+import { JobApplication, statusDisplayMap, typeDisplayMap } from '@/types/application';
 import { StatusBadge } from './StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Building2, Calendar, ExternalLink, MessageSquare, Trash2, Edit2 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 interface ApplicationCardProps {
@@ -15,7 +15,7 @@ interface ApplicationCardProps {
 export function ApplicationCard({ application, onEdit, onDelete }: ApplicationCardProps) {
   const hasInterviews = application.interviews.length > 0;
   const upcomingInterviews = application.interviews.filter(
-    i => !i.completed && new Date(i.date) >= new Date()
+    i => !i.completed && new Date(i.scheduledDate) >= new Date()
   );
 
   return (
@@ -46,13 +46,13 @@ export function ApplicationCard({ application, onEdit, onDelete }: ApplicationCa
             <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
               <div className="flex items-center gap-1.5">
                 <Calendar className="w-4 h-4" />
-                <span>Applied {format(new Date(application.dateApplied), 'MMM d, yyyy')}</span>
+                <span>Applied {format(parseISO(application.dateApplied), 'MMM d, yyyy')}</span>
               </div>
               
               <span className={cn(
                 'px-2 py-0.5 rounded text-xs font-medium bg-secondary text-secondary-foreground'
               )}>
-                {application.applicationType}
+                {typeDisplayMap[application.applicationType]}
               </span>
 
               {hasInterviews && (
