@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,42 +7,70 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Briefcase, Loader2 } from 'lucide-react';
+import { Briefcase, Loader2, ArrowLeft } from 'lucide-react';
 import { z } from 'zod';
 
-const authSchema = z.object({
+const emailSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
+});
+
+const authSchema = emailSchema.extend({
   password: z.string().min(6, 'Password must be at least 6 characters'),
 });
 
+const resetPasswordSchema = z.object({
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+  confirmPassword: z.string().min(6, 'Password must be at least 6 characters'),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+});
+
 export default function Auth() {
-  const { user, isLoading: authLoading, signIn, signUp } = useAuth();
+  const { user, isLoading: authLoading, signIn, signUp, resetPassword, updatePassword } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
 
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [errors, setErrors] = useState<{ email?: string; password?: string; confirmPassword?: string }>({});
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [isResetMode, setIsResetMode] = useState(false);
 
   useEffect(() => {
-    if (user && !authLoading) {
+    if (searchParams.get('mode') === 'reset') {
+      setIsResetMode(true);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (user && !authLoading && !isResetMode) {
       navigate('/');
     }
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading, navigate, isResetMode]);
 
-  const validateForm = () => {
+  const validateForm = (type: 'signin' | 'signup' | 'forgot' | 'reset') => {
     try {
-      authSchema.parse({ email, password });
+      if (type === 'forgot') {
+        emailSchema.parse({ email });
+      } else if (type === 'reset') {
+        resetPasswordSchema.parse({ password, confirmPassword });
+      } else {
+        authSchema.parse({ email, password });
+      }
       setErrors({});
       return true;
     } catch (err) {
       if (err instanceof z.ZodError) {
-        const fieldErrors: { email?: string; password?: string } = {};
+        const fieldErrors: { email?: string; password?: string; confirmPassword?: string } = {};
         err.errors.forEach((e) => {
           if (e.path[0] === 'email') fieldErrors.email = e.message;
           if (e.path[0] === 'password') fieldErrors.password = e.message;
+          if (e.path[0] === 'confirmPassword') fieldErrors.confirmPassword = e.message;
         });
         setErrors(fieldErrors);
       }
@@ -52,7 +80,7 @@ export default function Auth() {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateForm()) return;
+    if (!validateForm('signin')) return;
 
     setIsLoading(true);
     const { error } = await signIn(email, password);
@@ -77,7 +105,7 @@ export default function Auth() {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateForm()) return;
+    if (!validateForm('signup')) return;
 
     setIsLoading(true);
     const { error } = await signUp(email, password, fullName);
@@ -106,10 +134,156 @@ export default function Auth() {
     }
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateForm('forgot')) return;
+
+    setIsLoading(true);
+    const { error } = await resetPassword(email);
+    setIsLoading(false);
+
+    if (error) {
+      toast({
+        title: 'Reset failed',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } else {
+      toast({
+        title: 'Check your email',
+        description: 'We sent you a password reset link.',
+      });
+      setShowForgotPassword(false);
+    }
+  };
+
+  const handleUpdatePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateForm('reset')) return;
+
+    setIsLoading(true);
+    const { error } = await updatePassword(password);
+    setIsLoading(false);
+
+    if (error) {
+      toast({
+        title: 'Update failed',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } else {
+      toast({
+        title: 'Password updated!',
+        description: 'You can now sign in with your new password.',
+      });
+      setIsResetMode(false);
+      navigate('/');
+    }
+  };
+
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Password reset mode (after clicking email link)
+  if (isResetMode) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="flex justify-center mb-4">
+              <div className="w-14 h-14 rounded-xl bg-primary flex items-center justify-center">
+                <Briefcase className="w-7 h-7 text-primary-foreground" />
+              </div>
+            </div>
+            <CardTitle className="text-2xl">Set New Password</CardTitle>
+            <CardDescription>Enter your new password below</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleUpdatePassword} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="new-password">New Password</Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                />
+                {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirm-password">Confirm Password</Label>
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                />
+                {errors.confirmPassword && <p className="text-sm text-destructive">{errors.confirmPassword}</p>}
+              </div>
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Update Password
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Forgot password view
+  if (showForgotPassword) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="flex justify-center mb-4">
+              <div className="w-14 h-14 rounded-xl bg-primary flex items-center justify-center">
+                <Briefcase className="w-7 h-7 text-primary-foreground" />
+              </div>
+            </div>
+            <CardTitle className="text-2xl">Reset Password</CardTitle>
+            <CardDescription>Enter your email to receive a reset link</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="reset-email">Email</Label>
+                <Input
+                  id="reset-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  required
+                />
+                {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
+              </div>
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Send Reset Link
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full"
+                onClick={() => setShowForgotPassword(false)}
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Sign In
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -162,6 +336,14 @@ export default function Auth() {
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                   Sign In
+                </Button>
+                <Button
+                  type="button"
+                  variant="link"
+                  className="w-full text-sm text-muted-foreground"
+                  onClick={() => setShowForgotPassword(true)}
+                >
+                  Forgot your password?
                 </Button>
               </form>
             </TabsContent>
