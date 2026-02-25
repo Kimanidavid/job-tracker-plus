@@ -16,11 +16,11 @@ import { ExportButton } from '@/components/ExportButton';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { 
-  Briefcase, 
-  Clock, 
-  MessageSquare, 
-  Trophy, 
+import {
+  Briefcase,
+  Clock,
+  MessageSquare,
+  Trophy,
   Plus,
   Loader2,
   LogOut,
@@ -63,11 +63,11 @@ export default function Index() {
   // Statistics
   const stats = useMemo(() => {
     const total = applications.length;
-    const pending = applications.filter(a => 
+    const pending = applications.filter(a =>
       ['applied', 'under_review'].includes(a.status)
     ).length;
     const interviews = applications.filter(a => a.status === 'interview_stage').length;
-    const offers = applications.filter(a => 
+    const offers = applications.filter(a =>
       ['offer_received', 'employed'].includes(a.status)
     ).length;
 
@@ -81,7 +81,7 @@ export default function Index() {
     // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      result = result.filter(app => 
+      result = result.filter(app =>
         app.jobTitle.toLowerCase().includes(query) ||
         app.companyName.toLowerCase().includes(query) ||
         app.notes?.toLowerCase().includes(query)
@@ -215,12 +215,12 @@ export default function Index() {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-                <Briefcase className="w-5 h-5 text-primary-foreground" />
+              <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center overflow-hidden">
+                <img src="/Agenthire.png" alt="AgentHire Logo" className="w-5 h-5 object-contain" />
               </div>
               <div>
-                <h1 className="text-xl font-bold">JobTracker</h1>
-                <p className="text-sm text-muted-foreground">Organize your job search</p>
+                <h1 className="text-xl font-bold">AgentHire</h1>
+                <p className="text-sm text-muted-foreground">Get your dream job on auto pilot</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -241,7 +241,7 @@ export default function Index() {
         {/* Interview Reminders */}
         {upcomingInterviews.length > 0 && (
           <div className="mb-6 animate-slide-up">
-            <InterviewReminders 
+            <InterviewReminders
               upcomingInterviews={upcomingInterviews}
               onViewApplication={handleEdit}
             />
