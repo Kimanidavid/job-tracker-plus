@@ -12,6 +12,7 @@ import FollowUpManager from "./pages/FollowUpManager";
 import CareerAgent from "./pages/CareerAgent";
 import Analytics from "./pages/Analytics";
 import Auth from "./pages/Auth";
+import Landing from "./pages/Landing";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -23,8 +24,9 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
+          <Route path="/" element={<Landing />} />
           <Route path="/auth" element={<Auth />} />
-          <Route path="/" element={<AppLayout><Dashboard /></AppLayout>} />
+          <Route path="/dashboard" element={<AppLayout><Dashboard /></AppLayout>} />
           <Route path="/tracker" element={<AppLayout><JobTracker /></AppLayout>} />
           <Route path="/resume" element={<AppLayout><ResumeBuilder /></AppLayout>} />
           <Route path="/autopilot" element={<AppLayout><AutopilotSearch /></AppLayout>} />
