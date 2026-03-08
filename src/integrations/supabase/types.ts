@@ -136,6 +136,86 @@ export type Database = {
         }
         Relationships: []
       }
+      resumes: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          is_base: boolean
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          id?: string
+          is_base?: boolean
+          title?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          is_base?: boolean
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      tailored_resumes: {
+        Row: {
+          base_resume_id: string | null
+          company_name: string | null
+          created_at: string
+          id: string
+          job_description: string
+          job_title: string | null
+          recommendations: Json | null
+          score: number | null
+          tailored_content: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          base_resume_id?: string | null
+          company_name?: string | null
+          created_at?: string
+          id?: string
+          job_description?: string
+          job_title?: string | null
+          recommendations?: Json | null
+          score?: number | null
+          tailored_content?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          base_resume_id?: string | null
+          company_name?: string | null
+          created_at?: string
+          id?: string
+          job_description?: string
+          job_title?: string | null
+          recommendations?: Json | null
+          score?: number | null
+          tailored_content?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tailored_resumes_base_resume_id_fkey"
+            columns: ["base_resume_id"]
+            isOneToOne: false
+            referencedRelation: "resumes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
