@@ -496,7 +496,7 @@ export default function ResumeBuilder() {
                   {scoreData.strengths?.length > 0 && (
                     <div className="space-y-2">
                       <h4 className="font-medium flex items-center gap-1.5">
-                        <CheckCircle2 className="w-4 h-4 text-green-600" />
+                        <CheckCircle2 className="w-4 h-4 text-status-employed" />
                         Strengths
                       </h4>
                       <ul className="space-y-1">
