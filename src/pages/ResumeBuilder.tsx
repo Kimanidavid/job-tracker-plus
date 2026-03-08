@@ -22,6 +22,62 @@ import {
   Download, Eye, Palette, GripVertical, LayoutTemplate
 } from 'lucide-react';
 
+// Convert AI-structured format result into ResumeSection[]
+function convertAIFormatToSections(formatted: {
+  person_name: string;
+  tagline: string;
+  contact_lines: string[];
+  sidebar_sections: { title: string; content: string }[];
+  main_sections: { title: string; content: string }[];
+}): ResumeSection[] {
+  const sections: ResumeSection[] = [];
+
+  // Header section: name + tagline + contact
+  const headerContent = [
+    formatted.person_name,
+    formatted.tagline,
+    ...formatted.contact_lines,
+  ].join('\n');
+  sections.push({
+    id: 'header',
+    type: 'header',
+    title: 'Contact Info',
+    content: headerContent,
+    visible: true,
+  });
+
+  // Sidebar sections → mapped to 'skills' or 'education' type
+  for (const s of formatted.sidebar_sections) {
+    const titleLower = s.title.toLowerCase();
+    let type: ResumeSection['type'] = 'skills';
+    if (/education|academic|degree/.test(titleLower)) type = 'education';
+    sections.push({
+      id: crypto.randomUUID(),
+      type,
+      title: s.title,
+      content: s.content,
+      visible: true,
+    });
+  }
+
+  // Main sections → mapped to appropriate types
+  for (const s of formatted.main_sections) {
+    const titleLower = s.title.toLowerCase();
+    let type: ResumeSection['type'] = 'custom';
+    if (/profile|summary|objective|about/.test(titleLower)) type = 'summary';
+    else if (/experience|work|employment/.test(titleLower)) type = 'experience';
+    sections.push({
+      id: crypto.randomUUID(),
+      type,
+      title: s.title,
+      content: s.content,
+      visible: true,
+    });
+  }
+
+  return sections;
+}
+
 export default function ResumeBuilder() {
   const { toast } = useToast();
   const {
@@ -149,11 +205,31 @@ export default function ResumeBuilder() {
       setResumeContent(content);
       const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
       if (!resumeTitle) setResumeTitle(nameWithoutExt);
-      // Auto-parse and jump to preview
-      const parsed = parseResumeToSections(content);
-      setSections(parsed);
-      setActiveTab('preview');
-      toast({ title: 'CV uploaded & ready', description: `Your CV is now displayed in the selected template.` });
+
+      // Use AI to intelligently structure the CV into sidebar/main sections
+      toast({ title: 'Formatting CV with AI...', description: 'Structuring your resume into the template layout.' });
+      setAiLoading(true);
+      try {
+        const formatted = await callResumeAI('format', { resume: content });
+        if (formatted && formatted.person_name) {
+          const aiSections = convertAIFormatToSections(formatted);
+          setSections(aiSections);
+          setActiveTab('preview');
+          toast({ title: 'CV formatted!', description: 'Your CV has been structured into the two-column template.' });
+        } else {
+          // Fallback to basic parsing
+          setSections(parseResumeToSections(content));
+          setActiveTab('preview');
+          toast({ title: 'CV uploaded', description: 'Using basic formatting. AI formatting was unavailable.' });
+        }
+      } catch (aiErr) {
+        console.error('AI format failed, using basic parse:', aiErr);
+        setSections(parseResumeToSections(content));
+        setActiveTab('preview');
+        toast({ title: 'CV uploaded', description: 'Using basic formatting (AI unavailable).' });
+      } finally {
+        setAiLoading(false);
+      }
     } catch (err: any) {
       toast({ title: 'Upload failed', description: err.message, variant: 'destructive' });
     }
