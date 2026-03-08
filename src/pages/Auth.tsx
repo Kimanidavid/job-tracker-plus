@@ -130,7 +130,7 @@ export default function Auth() {
         title: 'Account created!',
         description: 'You can now start tracking your job applications.',
       });
-      navigate('/');
+      navigate('/dashboard');
     }
   };
 
