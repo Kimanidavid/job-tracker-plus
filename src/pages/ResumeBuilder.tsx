@@ -502,7 +502,7 @@ export default function ResumeBuilder() {
                       <ul className="space-y-1">
                         {scoreData.strengths.map((s: string, i: number) => (
                           <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
-                            <Star className="w-3.5 h-3.5 mt-0.5 text-yellow-500 shrink-0" />
+                            <Star className="w-3.5 h-3.5 mt-0.5 text-status-interview shrink-0" />
                             {s}
                           </li>
                         ))}
