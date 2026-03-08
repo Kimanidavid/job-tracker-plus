@@ -149,11 +149,31 @@ export default function ResumeBuilder() {
       setResumeContent(content);
       const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
       if (!resumeTitle) setResumeTitle(nameWithoutExt);
-      // Auto-parse and jump to preview
-      const parsed = parseResumeToSections(content);
-      setSections(parsed);
-      setActiveTab('preview');
-      toast({ title: 'CV uploaded & ready', description: `Your CV is now displayed in the selected template.` });
+
+      // Use AI to intelligently structure the CV into sidebar/main sections
+      toast({ title: 'Formatting CV with AI...', description: 'Structuring your resume into the template layout.' });
+      setAiLoading(true);
+      try {
+        const formatted = await callResumeAI('format', { resume: content });
+        if (formatted && formatted.person_name) {
+          const aiSections = convertAIFormatToSections(formatted);
+          setSections(aiSections);
+          setActiveTab('preview');
+          toast({ title: 'CV formatted!', description: 'Your CV has been structured into the two-column template.' });
+        } else {
+          // Fallback to basic parsing
+          setSections(parseResumeToSections(content));
+          setActiveTab('preview');
+          toast({ title: 'CV uploaded', description: 'Using basic formatting. AI formatting was unavailable.' });
+        }
+      } catch (aiErr) {
+        console.error('AI format failed, using basic parse:', aiErr);
+        setSections(parseResumeToSections(content));
+        setActiveTab('preview');
+        toast({ title: 'CV uploaded', description: 'Using basic formatting (AI unavailable).' });
+      } finally {
+        setAiLoading(false);
+      }
     } catch (err: any) {
       toast({ title: 'Upload failed', description: err.message, variant: 'destructive' });
     }
