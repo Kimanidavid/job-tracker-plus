@@ -49,7 +49,7 @@ export default function Auth() {
 
   useEffect(() => {
     if (user && !authLoading && !isResetMode) {
-      navigate('/');
+      navigate('/dashboard');
     }
   }, [user, authLoading, navigate, isResetMode]);
 
@@ -99,7 +99,7 @@ export default function Auth() {
         title: 'Welcome back!',
         description: 'You have successfully signed in.',
       });
-      navigate('/');
+      navigate('/dashboard');
     }
   };
 
@@ -130,7 +130,7 @@ export default function Auth() {
         title: 'Account created!',
         description: 'You can now start tracking your job applications.',
       });
-      navigate('/');
+      navigate('/dashboard');
     }
   };
 
@@ -177,7 +177,7 @@ export default function Auth() {
         description: 'You can now sign in with your new password.',
       });
       setIsResetMode(false);
-      navigate('/');
+      navigate('/dashboard');
     }
   };
 
