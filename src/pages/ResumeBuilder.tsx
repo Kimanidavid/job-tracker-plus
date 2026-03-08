@@ -19,7 +19,8 @@ import {
   FileText, Upload, Wand2, Target, CheckCircle2,
   Sparkles, Save, Trash2, Copy, ArrowRight, Loader2,
   AlertTriangle, Star, TrendingUp, BookOpen, FileUp,
-  Download, Eye, Palette, GripVertical, LayoutTemplate
+  Download, Eye, Palette, GripVertical, LayoutTemplate,
+  Send, MessageSquare
 } from 'lucide-react';
 
 // Convert AI-structured format result into ResumeSection[]

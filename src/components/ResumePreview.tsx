@@ -190,7 +190,7 @@ const ResumePreview = forwardRef<HTMLDivElement, Props>(({ sections, theme, cust
   const bodySections = visibleSections.filter(s => s.type !== 'header');
 
   const headerLines = headerSection?.content.split('\n').filter(l => l.trim()) ?? [];
-  const personName = cleanContent(headerLines[0]?.trim() || 'Your Name');
+  const personName = cleanContent(headerLines[0]?.trim() || '');
   const tagline = cleanContent(headerLines[1]?.trim() || '');
   const contactDetails = headerLines.slice(2).map(l => cleanContent(l.trim()));
 
