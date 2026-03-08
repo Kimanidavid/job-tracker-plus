@@ -49,7 +49,7 @@ export default function Auth() {
 
   useEffect(() => {
     if (user && !authLoading && !isResetMode) {
-      navigate('/');
+      navigate('/dashboard');
     }
   }, [user, authLoading, navigate, isResetMode]);
 
