@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,7 @@ import { useResumes, callResumeAI } from '@/hooks/useResumes';
 import {
   FileText, Upload, Wand2, Target, CheckCircle2,
   Sparkles, Save, Trash2, Copy, ArrowRight, Loader2,
-  AlertTriangle, Star, TrendingUp, BookOpen
+  AlertTriangle, Star, TrendingUp, BookOpen, FileUp
 } from 'lucide-react';
 
 export default function ResumeBuilder() {
