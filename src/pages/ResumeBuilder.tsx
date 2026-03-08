@@ -12,12 +12,14 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { useResumes, callResumeAI } from '@/hooks/useResumes';
 import ResumePreview, { defaultThemes, parseResumeToSections, type ResumeSection, type ResumeTheme } from '@/components/ResumePreview';
+import TemplateCatalogue from '@/components/TemplateCatalogue';
+import { resumeTemplates, templateToTheme, type ResumeTemplate } from '@/data/resumeTemplates';
 import { exportToDocx, exportToPdf } from '@/utils/exportResume';
 import {
   FileText, Upload, Wand2, Target, CheckCircle2,
   Sparkles, Save, Trash2, Copy, ArrowRight, Loader2,
   AlertTriangle, Star, TrendingUp, BookOpen, FileUp,
-  Download, Eye, Palette, GripVertical
+  Download, Eye, Palette, GripVertical, LayoutTemplate
 } from 'lucide-react';
 
 export default function ResumeBuilder() {
@@ -42,6 +44,7 @@ export default function ResumeBuilder() {
 
   // Preview / customization state
   const [selectedTheme, setSelectedTheme] = useState<ResumeTheme>(defaultThemes[1]);
+  const [selectedTemplate, setSelectedTemplate] = useState<ResumeTemplate | null>(resumeTemplates[0]);
   const [customColor, setCustomColor] = useState('');
   const [sections, setSections] = useState<ResumeSection[]>([]);
   const [exportLoading, setExportLoading] = useState(false);
@@ -76,7 +79,8 @@ export default function ResumeBuilder() {
   const handleExportDocx = async () => {
     setExportLoading(true);
     try {
-      await exportToDocx(sections.length ? sections : parsedSections, selectedTheme, `${resumeTitle || 'resume'}.docx`);
+      const theme = selectedTemplate ? templateToTheme(selectedTemplate) : selectedTheme;
+      await exportToDocx(sections.length ? sections : parsedSections, theme, `${resumeTitle || 'resume'}.docx`);
       toast({ title: 'DOCX downloaded!' });
     } catch (err: any) {
       toast({ title: 'Export failed', description: err.message, variant: 'destructive' });
@@ -614,48 +618,49 @@ export default function ResumeBuilder() {
 
         {/* PREVIEW & EXPORT TAB */}
         <TabsContent value="preview" className="space-y-4">
-          <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
+          <div className="grid gap-4 lg:grid-cols-[360px_1fr]">
             {/* Sidebar controls */}
             <div className="space-y-4">
+              {/* Template Catalogue */}
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg flex items-center gap-2">
-                    <Palette className="w-4 h-4" />
-                    Theme & Style
+                    <LayoutTemplate className="w-4 h-4" />
+                    Template Catalogue
                   </CardTitle>
+                  <CardDescription className="text-xs">Choose a professional template with a color palette</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label className="text-xs font-medium">Template</Label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {defaultThemes.map(t => (
-                        <button
-                          key={t.id}
-                          onClick={() => { setSelectedTheme(t); setCustomColor(''); }}
-                          className={`p-2 rounded-md border text-xs font-medium text-left transition-all ${
-                            selectedTheme.id === t.id ? 'border-primary ring-2 ring-primary/20 bg-primary/5' : 'hover:bg-accent/50'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: t.primaryColor }} />
-                            {t.name}
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                <CardContent>
+                  <TemplateCatalogue
+                    selectedTemplate={selectedTemplate}
+                    onSelect={(t) => {
+                      setSelectedTemplate(t);
+                      setSelectedTheme(templateToTheme(t));
+                      setCustomColor('');
+                    }}
+                  />
+                </CardContent>
+              </Card>
 
-                  <div className="space-y-2">
-                    <Label className="text-xs font-medium">Custom Accent Color</Label>
+              {/* Custom color override */}
+              {selectedTemplate && (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Palette className="w-4 h-4" />
+                      Custom Accent Color
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
                     <div className="flex gap-2 items-center">
                       <input
                         type="color"
-                        value={customColor || selectedTheme.primaryColor}
+                        value={customColor || selectedTemplate.palette.primary}
                         onChange={(e) => setCustomColor(e.target.value)}
                         className="w-8 h-8 rounded cursor-pointer border-0"
                       />
                       <Input
-                        value={customColor || selectedTheme.primaryColor}
+                        value={customColor || selectedTemplate.palette.primary}
                         onChange={(e) => setCustomColor(e.target.value)}
                         placeholder="#2563eb"
                         className="font-mono text-xs"
@@ -666,9 +671,16 @@ export default function ResumeBuilder() {
                         </Button>
                       )}
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
+                    {/* Palette preview */}
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs text-muted-foreground">Palette:</span>
+                      {[selectedTemplate.palette.primary, selectedTemplate.palette.secondary, selectedTemplate.palette.accent, selectedTemplate.palette.headerBg, selectedTemplate.palette.divider].map((c, i) => (
+                        <div key={i} className="w-4 h-4 rounded-full border border-border" style={{ background: c }} title={c} />
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
               <Card>
                 <CardHeader className="pb-3">
@@ -676,7 +688,7 @@ export default function ResumeBuilder() {
                   <CardDescription className="text-xs">Toggle visibility or reorder sections</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <ScrollArea className="max-h-[300px]">
+                  <ScrollArea className="max-h-[250px]">
                     <div className="space-y-1.5">
                       {(sections.length ? sections : parsedSections).map((section, idx) => (
                         <div key={section.id} className="flex items-center gap-2 p-2 rounded-md border bg-card">
@@ -733,6 +745,7 @@ export default function ResumeBuilder() {
                           sections={sections.length ? sections : parsedSections}
                           theme={selectedTheme}
                           customColor={customColor || undefined}
+                          template={selectedTemplate}
                         />
                       </div>
                     ) : (
