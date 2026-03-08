@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,7 @@ import { useResumes, callResumeAI } from '@/hooks/useResumes';
 import {
   FileText, Upload, Wand2, Target, CheckCircle2,
   Sparkles, Save, Trash2, Copy, ArrowRight, Loader2,
-  AlertTriangle, Star, TrendingUp, BookOpen
+  AlertTriangle, Star, TrendingUp, BookOpen, FileUp
 } from 'lucide-react';
 
 export default function ResumeBuilder() {
@@ -31,6 +31,67 @@ export default function ResumeBuilder() {
   const [scoreData, setScoreData] = useState<any>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [selectedResumeId, setSelectedResumeId] = useState<string | null>(null);
+  const [uploadLoading, setUploadLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const parseUploadedFile = async (file: File) => {
+    setUploadLoading(true);
+    try {
+      const ext = file.name.split('.').pop()?.toLowerCase();
+
+      if (ext === 'pdf') {
+        const pdfjsLib = await import('pdfjs-dist');
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        let text = '';
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          text += content.items.map((item: any) => item.str).join(' ') + '\n\n';
+        }
+        return text.trim();
+      } else if (ext === 'docx' || ext === 'doc') {
+        const mammoth = await import('mammoth');
+        const arrayBuffer = await file.arrayBuffer();
+        const result = await mammoth.extractRawText({ arrayBuffer });
+        return result.value.trim();
+      } else if (ext === 'txt' || ext === 'md') {
+        return await file.text();
+      } else {
+        throw new Error('Unsupported file type. Please upload a PDF, DOCX, or TXT file.');
+      }
+    } finally {
+      setUploadLoading(false);
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Reset input so the same file can be re-selected
+    if (fileInputRef.current) fileInputRef.current.value = '';
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: 'File too large', description: 'Max file size is 10MB', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      const content = await parseUploadedFile(file);
+      if (!content) {
+        toast({ title: 'Could not extract text', description: 'The file appears to be empty or image-based.', variant: 'destructive' });
+        return;
+      }
+      setResumeContent(content);
+      const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
+      if (!resumeTitle) setResumeTitle(nameWithoutExt);
+      toast({ title: 'CV uploaded & parsed', description: `Extracted ${content.length} characters from ${file.name}` });
+    } catch (err: any) {
+      toast({ title: 'Upload failed', description: err.message, variant: 'destructive' });
+    }
+  };
 
   const loadBaseResume = () => {
     if (baseResume) {
@@ -212,10 +273,52 @@ export default function ResumeBuilder() {
               <CardHeader>
                 <CardTitle className="text-lg">Your Base Resume</CardTitle>
                 <CardDescription>
-                  Paste your resume content here. This will be stored and reused when tailoring for new jobs.
+                  Upload a CV file or paste your resume content. This will be stored and reused when tailoring for new jobs.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* File Upload Zone */}
+                <div
+                  className="relative border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 hover:bg-accent/30 transition-colors"
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                  onDrop={async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const file = e.dataTransfer.files?.[0];
+                    if (file) {
+                      const fakeEvent = { target: { files: [file] } } as any;
+                      await handleFileUpload(fakeEvent);
+                    }
+                  }}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".pdf,.docx,.doc,.txt,.md"
+                    className="hidden"
+                    onChange={handleFileUpload}
+                  />
+                  {uploadLoading ? (
+                    <div className="flex flex-col items-center gap-2">
+                      <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                      <p className="text-sm font-medium">Parsing your CV...</p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-2">
+                      <FileUp className="w-8 h-8 text-muted-foreground" />
+                      <p className="text-sm font-medium">Drop your CV here or click to upload</p>
+                      <p className="text-xs text-muted-foreground">Supports PDF, DOCX, DOC, TXT (max 10MB)</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="relative flex items-center gap-3">
+                  <div className="flex-1 border-t" />
+                  <span className="text-xs text-muted-foreground">or paste manually</span>
+                  <div className="flex-1 border-t" />
+                </div>
+
                 <div className="space-y-2">
                   <Label>Resume Title</Label>
                   <Input
