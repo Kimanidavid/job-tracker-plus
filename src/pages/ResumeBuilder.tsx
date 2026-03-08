@@ -19,7 +19,8 @@ import {
   FileText, Upload, Wand2, Target, CheckCircle2,
   Sparkles, Save, Trash2, Copy, ArrowRight, Loader2,
   AlertTriangle, Star, TrendingUp, BookOpen, FileUp,
-  Download, Eye, Palette, GripVertical, LayoutTemplate
+  Download, Eye, Palette, GripVertical, LayoutTemplate,
+  Send, MessageSquare
 } from 'lucide-react';
 
 // Convert AI-structured format result into ResumeSection[]
@@ -104,6 +105,12 @@ export default function ResumeBuilder() {
   const [customColor, setCustomColor] = useState('');
   const [sections, setSections] = useState<ResumeSection[]>([]);
   const [exportLoading, setExportLoading] = useState(false);
+  
+  // Chat state for real-time AI edits
+  const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
   const activeContent = tailoredContent || resumeContent;
 
@@ -344,6 +351,45 @@ export default function ResumeBuilder() {
   const handleCopy = () => {
     navigator.clipboard.writeText(activeContent);
     toast({ title: 'Copied to clipboard' });
+  };
+
+  // Chat-based AI CV editing
+  const handleChatSend = async () => {
+    const msg = chatInput.trim();
+    if (!msg || chatLoading) return;
+    setChatInput('');
+    setChatMessages(prev => [...prev, { role: 'user', content: msg }]);
+    setChatLoading(true);
+    try {
+      // Build current resume text from sections
+      const currentSections = sections.length ? sections : parsedSections;
+      const resumeText = currentSections.map(s => {
+        if (s.type === 'header') return s.content;
+        return `${s.title}\n${s.content}`;
+      }).join('\n\n');
+
+      const result = await callResumeAI('edit', { resume: resumeText, editInstruction: msg });
+      if (result) {
+        // Re-format through AI
+        try {
+          const formatted = await callResumeAI('format', { resume: result });
+          if (formatted && formatted.person_name) {
+            const aiSections = convertAIFormatToSections(formatted);
+            setSections(aiSections);
+          } else {
+            setSections(parseResumeToSections(result));
+          }
+        } catch {
+          setSections(parseResumeToSections(result));
+        }
+        setChatMessages(prev => [...prev, { role: 'assistant', content: 'Done! I\'ve updated your CV with the requested changes.' }]);
+      }
+    } catch (err: any) {
+      setChatMessages(prev => [...prev, { role: 'assistant', content: `Error: ${err.message}` }]);
+    } finally {
+      setChatLoading(false);
+      setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+    }
   };
 
   const getPriorityColor = (priority: string) => {
@@ -698,17 +744,15 @@ export default function ResumeBuilder() {
 
         {/* PREVIEW & EXPORT TAB */}
         <TabsContent value="preview" className="space-y-4">
-          <div className="grid gap-4 lg:grid-cols-[360px_1fr]">
-            {/* Sidebar controls */}
+          <div className="grid gap-4 lg:grid-cols-[320px_1fr_320px]">
+            {/* Left sidebar — Templates + Sections + Export */}
             <div className="space-y-4">
-              {/* Template Catalogue */}
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg flex items-center gap-2">
                     <LayoutTemplate className="w-4 h-4" />
-                    Template Catalogue
+                    Templates
                   </CardTitle>
-                  <CardDescription className="text-xs">Choose a professional template with a color palette</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <TemplateCatalogue
@@ -722,13 +766,12 @@ export default function ResumeBuilder() {
                 </CardContent>
               </Card>
 
-              {/* Custom color override */}
               {selectedTemplate && (
                 <Card>
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center gap-2">
+                    <CardTitle className="text-sm flex items-center gap-2">
                       <Palette className="w-4 h-4" />
-                      Custom Accent Color
+                      Accent Color
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2">
@@ -751,33 +794,23 @@ export default function ResumeBuilder() {
                         </Button>
                       )}
                     </div>
-                    {/* Palette preview */}
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs text-muted-foreground">Palette:</span>
-                      {[selectedTemplate.palette.navy, selectedTemplate.palette.midTone, selectedTemplate.palette.accent, selectedTemplate.palette.steel, selectedTemplate.palette.light].map((c, i) => (
-                        <div key={i} className="w-4 h-4 rounded-full border border-border" style={{ background: c }} title={c} />
-                      ))}
-                    </div>
                   </CardContent>
                 </Card>
               )}
 
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-lg">Sections</CardTitle>
-                  <CardDescription className="text-xs">Toggle visibility or reorder sections</CardDescription>
+                  <CardTitle className="text-sm">Sections</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <ScrollArea className="max-h-[250px]">
+                  <ScrollArea className="max-h-[200px]">
                     <div className="space-y-1.5">
                       {(sections.length ? sections : parsedSections).map((section, idx) => (
-                        <div key={section.id} className="flex items-center gap-2 p-2 rounded-md border bg-card">
+                        <div key={section.id} className="flex items-center gap-2 p-1.5 rounded-md border bg-card">
                           <button onClick={() => moveSectionUp(idx)} className="text-muted-foreground hover:text-foreground">
                             <GripVertical className="w-3.5 h-3.5" />
                           </button>
-                          <div className="flex-1 min-w-0">
-                            <span className="text-xs font-medium truncate block">{section.title}</span>
-                          </div>
+                          <span className="flex-1 text-xs font-medium truncate">{section.title}</span>
                           <Switch
                             checked={section.visible}
                             onCheckedChange={() => toggleSectionVisibility(section.id)}
@@ -791,43 +824,37 @@ export default function ResumeBuilder() {
 
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-lg flex items-center gap-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
                     <Download className="w-4 h-4" />
                     Export
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  <Button className="w-full justify-start" onClick={handleExportPdf} disabled={exportLoading}>
+                  <Button className="w-full justify-start" size="sm" onClick={handleExportPdf} disabled={exportLoading}>
                     {exportLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileText className="w-4 h-4 mr-2" />}
                     Download PDF
                   </Button>
-                  <Button variant="secondary" className="w-full justify-start" onClick={handleExportDocx} disabled={exportLoading}>
+                  <Button variant="secondary" className="w-full justify-start" size="sm" onClick={handleExportDocx} disabled={exportLoading}>
                     {exportLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileText className="w-4 h-4 mr-2" />}
                     Download DOCX
-                  </Button>
-                  <Button variant="outline" className="w-full justify-start" onClick={handleCopy}>
-                    <Copy className="w-4 h-4 mr-2" />
-                    Copy as Text
                   </Button>
                 </CardContent>
               </Card>
             </div>
 
-            {/* Live Preview */}
+            {/* Center — Scrollable CV Preview */}
             <Card className="overflow-hidden">
               <CardContent className="p-0">
-                <ScrollArea className="h-[800px]">
-                  <div className="p-4 bg-muted/30 flex justify-center">
-                    {activeContent.trim() ? (
-                      <div className="transform origin-top" style={{ transform: 'scale(0.75)' }}>
-                        <ResumePreview
-                          ref={previewRef}
-                          sections={sections.length ? sections : parsedSections}
-                          theme={selectedTheme}
-                          customColor={customColor || undefined}
-                          template={selectedTemplate}
-                        />
-                      </div>
+                <div className="overflow-auto h-[calc(100vh-220px)] bg-muted/30">
+                  <div className="min-w-fit p-4 flex justify-center">
+                    {activeContent.trim() || sections.length > 0 ? (
+                      <ResumePreview
+                        ref={previewRef}
+                        sections={sections.length ? sections : parsedSections}
+                        theme={selectedTheme}
+                        customColor={customColor || undefined}
+                        template={selectedTemplate}
+                      />
                     ) : (
                       <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
                         <Eye className="w-8 h-8 mb-3 opacity-50" />
@@ -835,7 +862,66 @@ export default function ResumeBuilder() {
                       </div>
                     )}
                   </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Right sidebar — AI Chat */}
+            <Card className="flex flex-col overflow-hidden">
+              <CardHeader className="pb-2 shrink-0">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4" />
+                  AI CV Editor
+                </CardTitle>
+                <CardDescription className="text-xs">Tell AI what to change in your CV</CardDescription>
+              </CardHeader>
+              <CardContent className="flex-1 flex flex-col p-3 pt-0 min-h-0">
+                {/* Chat messages */}
+                <ScrollArea className="flex-1 mb-3">
+                  <div className="space-y-2 pr-2">
+                    {chatMessages.length === 0 && (
+                      <div className="text-xs text-muted-foreground text-center py-8">
+                        <Sparkles className="w-5 h-5 mx-auto mb-2 opacity-40" />
+                        <p>Ask AI to edit your CV.</p>
+                        <p className="mt-1 opacity-70">e.g. "Make the summary shorter" or "Add more Python keywords"</p>
+                      </div>
+                    )}
+                    {chatMessages.map((msg, i) => (
+                      <div
+                        key={i}
+                        className={`text-xs p-2 rounded-lg max-w-[95%] ${
+                          msg.role === 'user'
+                            ? 'ml-auto bg-primary text-primary-foreground'
+                            : 'bg-muted text-foreground'
+                        }`}
+                      >
+                        {msg.content}
+                      </div>
+                    ))}
+                    {chatLoading && (
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground p-2">
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        Editing your CV...
+                      </div>
+                    )}
+                    <div ref={chatEndRef} />
+                  </div>
                 </ScrollArea>
+
+                {/* Chat input */}
+                <div className="flex gap-1.5 shrink-0">
+                  <Input
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleChatSend()}
+                    placeholder="e.g. Add a skills section..."
+                    className="text-xs h-8"
+                    disabled={chatLoading}
+                  />
+                  <Button size="icon" className="h-8 w-8 shrink-0" onClick={handleChatSend} disabled={chatLoading || !chatInput.trim()}>
+                    <Send className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </div>
