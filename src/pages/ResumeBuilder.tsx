@@ -31,6 +31,67 @@ export default function ResumeBuilder() {
   const [scoreData, setScoreData] = useState<any>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [selectedResumeId, setSelectedResumeId] = useState<string | null>(null);
+  const [uploadLoading, setUploadLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const parseUploadedFile = async (file: File) => {
+    setUploadLoading(true);
+    try {
+      const ext = file.name.split('.').pop()?.toLowerCase();
+
+      if (ext === 'pdf') {
+        const pdfjsLib = await import('pdfjs-dist');
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        let text = '';
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          text += content.items.map((item: any) => item.str).join(' ') + '\n\n';
+        }
+        return text.trim();
+      } else if (ext === 'docx' || ext === 'doc') {
+        const mammoth = await import('mammoth');
+        const arrayBuffer = await file.arrayBuffer();
+        const result = await mammoth.extractRawText({ arrayBuffer });
+        return result.value.trim();
+      } else if (ext === 'txt' || ext === 'md') {
+        return await file.text();
+      } else {
+        throw new Error('Unsupported file type. Please upload a PDF, DOCX, or TXT file.');
+      }
+    } finally {
+      setUploadLoading(false);
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Reset input so the same file can be re-selected
+    if (fileInputRef.current) fileInputRef.current.value = '';
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: 'File too large', description: 'Max file size is 10MB', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      const content = await parseUploadedFile(file);
+      if (!content) {
+        toast({ title: 'Could not extract text', description: 'The file appears to be empty or image-based.', variant: 'destructive' });
+        return;
+      }
+      setResumeContent(content);
+      const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
+      if (!resumeTitle) setResumeTitle(nameWithoutExt);
+      toast({ title: 'CV uploaded & parsed', description: `Extracted ${content.length} characters from ${file.name}` });
+    } catch (err: any) {
+      toast({ title: 'Upload failed', description: err.message, variant: 'destructive' });
+    }
+  };
 
   const loadBaseResume = () => {
     if (baseResume) {
