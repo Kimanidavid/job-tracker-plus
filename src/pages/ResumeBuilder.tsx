@@ -22,6 +22,62 @@ import {
   Download, Eye, Palette, GripVertical, LayoutTemplate
 } from 'lucide-react';
 
+// Convert AI-structured format result into ResumeSection[]
+function convertAIFormatToSections(formatted: {
+  person_name: string;
+  tagline: string;
+  contact_lines: string[];
+  sidebar_sections: { title: string; content: string }[];
+  main_sections: { title: string; content: string }[];
+}): ResumeSection[] {
+  const sections: ResumeSection[] = [];
+
+  // Header section: name + tagline + contact
+  const headerContent = [
+    formatted.person_name,
+    formatted.tagline,
+    ...formatted.contact_lines,
+  ].join('\n');
+  sections.push({
+    id: 'header',
+    type: 'header',
+    title: 'Contact Info',
+    content: headerContent,
+    visible: true,
+  });
+
+  // Sidebar sections → mapped to 'skills' or 'education' type
+  for (const s of formatted.sidebar_sections) {
+    const titleLower = s.title.toLowerCase();
+    let type: ResumeSection['type'] = 'skills';
+    if (/education|academic|degree/.test(titleLower)) type = 'education';
+    sections.push({
+      id: crypto.randomUUID(),
+      type,
+      title: s.title,
+      content: s.content,
+      visible: true,
+    });
+  }
+
+  // Main sections → mapped to appropriate types
+  for (const s of formatted.main_sections) {
+    const titleLower = s.title.toLowerCase();
+    let type: ResumeSection['type'] = 'custom';
+    if (/profile|summary|objective|about/.test(titleLower)) type = 'summary';
+    else if (/experience|work|employment/.test(titleLower)) type = 'experience';
+    sections.push({
+      id: crypto.randomUUID(),
+      type,
+      title: s.title,
+      content: s.content,
+      visible: true,
+    });
+  }
+
+  return sections;
+}
+
 export default function ResumeBuilder() {
   const { toast } = useToast();
   const {
