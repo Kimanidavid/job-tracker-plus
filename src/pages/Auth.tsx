@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Briefcase, Loader2, ArrowLeft } from 'lucide-react';
 import { z } from 'zod';
 import { supabase } from '@/integrations/supabase/client';
+import { lovable } from '@/integrations/lovable/index';
 import { Separator } from '@/components/ui/separator';
 
 const emailSchema = z.object({
@@ -82,16 +83,13 @@ export default function Auth() {
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: window.location.origin + '/dashboard',
-      },
+    const result = await lovable.auth.signInWithOAuth('google', {
+      redirect_uri: window.location.origin,
     });
-    if (error) {
+    if (result?.error) {
       toast({
         title: 'Google sign in failed',
-        description: error.message,
+        description: result.error.message || 'An error occurred',
         variant: 'destructive',
       });
     }
