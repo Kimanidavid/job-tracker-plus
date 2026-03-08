@@ -674,7 +674,7 @@ export default function ResumeBuilder() {
                     {/* Palette preview */}
                     <div className="flex items-center gap-1.5">
                       <span className="text-xs text-muted-foreground">Palette:</span>
-                      {[selectedTemplate.palette.primary, selectedTemplate.palette.secondary, selectedTemplate.palette.accent, selectedTemplate.palette.headerBg, selectedTemplate.palette.divider].map((c, i) => (
+                      {[selectedTemplate.palette.navy, selectedTemplate.palette.midTone, selectedTemplate.palette.accent, selectedTemplate.palette.steel, selectedTemplate.palette.light].map((c, i) => (
                         <div key={i} className="w-4 h-4 rounded-full border border-border" style={{ background: c }} title={c} />
                       ))}
                     </div>
