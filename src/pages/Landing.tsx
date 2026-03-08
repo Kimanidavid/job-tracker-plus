@@ -146,8 +146,8 @@ export default function Landing() {
               </div>
               <div className="absolute -bottom-6 -left-6 bg-card border border-border rounded-xl p-4 shadow-lg hidden md:block">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-green-500/15 flex items-center justify-center">
-                    <CheckCircle2 className="w-5 h-5 text-green-500" />
+              <div className="w-10 h-10 rounded-full bg-emerald-500/15 flex items-center justify-center">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-500" />
                   </div>
                   <div>
                     <p className="text-sm font-semibold">Offer Received!</p>
