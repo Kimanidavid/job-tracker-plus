@@ -105,6 +105,12 @@ export default function ResumeBuilder() {
   const [customColor, setCustomColor] = useState('');
   const [sections, setSections] = useState<ResumeSection[]>([]);
   const [exportLoading, setExportLoading] = useState(false);
+  
+  // Chat state for real-time AI edits
+  const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
   const activeContent = tailoredContent || resumeContent;
 
