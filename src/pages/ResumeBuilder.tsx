@@ -12,12 +12,14 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { useResumes, callResumeAI } from '@/hooks/useResumes';
 import ResumePreview, { defaultThemes, parseResumeToSections, type ResumeSection, type ResumeTheme } from '@/components/ResumePreview';
+import TemplateCatalogue from '@/components/TemplateCatalogue';
+import { resumeTemplates, templateToTheme, type ResumeTemplate } from '@/data/resumeTemplates';
 import { exportToDocx, exportToPdf } from '@/utils/exportResume';
 import {
   FileText, Upload, Wand2, Target, CheckCircle2,
   Sparkles, Save, Trash2, Copy, ArrowRight, Loader2,
   AlertTriangle, Star, TrendingUp, BookOpen, FileUp,
-  Download, Eye, Palette, GripVertical
+  Download, Eye, Palette, GripVertical, LayoutTemplate
 } from 'lucide-react';
 
 export default function ResumeBuilder() {
