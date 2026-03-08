@@ -353,6 +353,45 @@ export default function ResumeBuilder() {
     toast({ title: 'Copied to clipboard' });
   };
 
+  // Chat-based AI CV editing
+  const handleChatSend = async () => {
+    const msg = chatInput.trim();
+    if (!msg || chatLoading) return;
+    setChatInput('');
+    setChatMessages(prev => [...prev, { role: 'user', content: msg }]);
+    setChatLoading(true);
+    try {
+      // Build current resume text from sections
+      const currentSections = sections.length ? sections : parsedSections;
+      const resumeText = currentSections.map(s => {
+        if (s.type === 'header') return s.content;
+        return `${s.title}\n${s.content}`;
+      }).join('\n\n');
+
+      const result = await callResumeAI('edit', { resume: resumeText, editInstruction: msg });
+      if (result) {
+        // Re-format through AI
+        try {
+          const formatted = await callResumeAI('format', { resume: result });
+          if (formatted && formatted.person_name) {
+            const aiSections = convertAIFormatToSections(formatted);
+            setSections(aiSections);
+          } else {
+            setSections(parseResumeToSections(result));
+          }
+        } catch {
+          setSections(parseResumeToSections(result));
+        }
+        setChatMessages(prev => [...prev, { role: 'assistant', content: 'Done! I\'ve updated your CV with the requested changes.' }]);
+      }
+    } catch (err: any) {
+      setChatMessages(prev => [...prev, { role: 'assistant', content: `Error: ${err.message}` }]);
+    } finally {
+      setChatLoading(false);
+      setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+    }
+  };
+
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'high': return 'destructive';
