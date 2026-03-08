@@ -177,7 +177,7 @@ export default function Auth() {
         description: 'You can now sign in with your new password.',
       });
       setIsResetMode(false);
-      navigate('/');
+      navigate('/dashboard');
     }
   };
 
