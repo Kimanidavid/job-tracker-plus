@@ -513,7 +513,7 @@ export default function ResumeBuilder() {
                   {scoreData.improvements?.length > 0 && (
                     <div className="space-y-2">
                       <h4 className="font-medium flex items-center gap-1.5">
-                        <AlertTriangle className="w-4 h-4 text-yellow-600" />
+                        <AlertTriangle className="w-4 h-4 text-status-interview" />
                         Improvements
                       </h4>
                       <div className="space-y-2">
