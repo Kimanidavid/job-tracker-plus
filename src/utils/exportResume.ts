@@ -1,5 +1,4 @@
 import { Document, Paragraph, TextRun, HeadingLevel, Packer, AlignmentType, BorderStyle } from 'docx';
-import { saveAs } from 'file-saver';
 import type { ResumeSection, ResumeTheme } from '@/components/ResumePreview';
 
 // ─── DOCX Export ────────────────────────────────────────────────────────────
@@ -62,7 +61,16 @@ export async function exportToDocx(sections: ResumeSection[], theme: ResumeTheme
     sections: [{ properties: { page: { margin: { top: 1134, bottom: 1134, left: 1020, right: 1020 } } }, children }],
   });
   const blob = await Packer.toBlob(doc);
-  saveAs(blob, fileName);
+  
+  // Use native download instead of file-saver
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 // ─── PDF Export (html2canvas + jsPDF) ────────────────────────────────────────
