@@ -273,10 +273,52 @@ export default function ResumeBuilder() {
               <CardHeader>
                 <CardTitle className="text-lg">Your Base Resume</CardTitle>
                 <CardDescription>
-                  Paste your resume content here. This will be stored and reused when tailoring for new jobs.
+                  Upload a CV file or paste your resume content. This will be stored and reused when tailoring for new jobs.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* File Upload Zone */}
+                <div
+                  className="relative border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 hover:bg-accent/30 transition-colors"
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                  onDrop={async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const file = e.dataTransfer.files?.[0];
+                    if (file) {
+                      const fakeEvent = { target: { files: [file] } } as any;
+                      await handleFileUpload(fakeEvent);
+                    }
+                  }}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".pdf,.docx,.doc,.txt,.md"
+                    className="hidden"
+                    onChange={handleFileUpload}
+                  />
+                  {uploadLoading ? (
+                    <div className="flex flex-col items-center gap-2">
+                      <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                      <p className="text-sm font-medium">Parsing your CV...</p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-2">
+                      <FileUp className="w-8 h-8 text-muted-foreground" />
+                      <p className="text-sm font-medium">Drop your CV here or click to upload</p>
+                      <p className="text-xs text-muted-foreground">Supports PDF, DOCX, DOC, TXT (max 10MB)</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="relative flex items-center gap-3">
+                  <div className="flex-1 border-t" />
+                  <span className="text-xs text-muted-foreground">or paste manually</span>
+                  <div className="flex-1 border-t" />
+                </div>
+
                 <div className="space-y-2">
                   <Label>Resume Title</Label>
                   <Input
