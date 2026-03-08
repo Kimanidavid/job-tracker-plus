@@ -9,7 +9,6 @@ export interface ResumeSection {
   visible: boolean;
 }
 
-// Legacy theme type kept for backward compat
 export interface ResumeTheme {
   id: string;
   name: string;
@@ -52,7 +51,7 @@ export function parseResumeToSections(content: string): ResumeSection[] {
       currentSection = {
         id: crypto.randomUUID(),
         type,
-        title: trimmed.replace(/[:—-]+$/, '').trim(),
+        title: cleanTitle(trimmed),
         content: '',
         visible: true,
       };
@@ -69,6 +68,17 @@ export function parseResumeToSections(content: string): ResumeSection[] {
   return sections;
 }
 
+/** Strip asterisks, colons, dashes from titles and title-case them */
+function cleanTitle(raw: string): string {
+  const stripped = raw.replace(/[*_#]+/g, '').replace(/[:—-]+$/, '').trim();
+  // Title case: capitalize first letter of each word
+  return stripped
+    .toLowerCase()
+    .split(' ')
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
+
 function detectSectionType(header: string): ResumeSection['type'] {
   const h = header.toLowerCase();
   if (/summary|objective|profile|about/.test(h)) return 'summary';
@@ -78,34 +88,73 @@ function detectSectionType(header: string): ResumeSection['type'] {
   return 'custom';
 }
 
-function isSidebarSection(section: ResumeSection): boolean {
-  if (section.type === 'skills' || section.type === 'education') return true;
-  const title = section.title.toLowerCase();
-  return /skill|tool|tech|language|certif|program|annotation|interest|special|contact/.test(title);
+/** Clean asterisks and markdown bold from content lines */
+function cleanContent(text: string): string {
+  return text.replace(/\*\*/g, '').replace(/\*/g, '');
 }
 
-// ── Render content lines with bullet detection ──
-function ContentLines({ content, palette, isSidebar }: { content: string; palette: CVPalette; isSidebar?: boolean }) {
+// ── Render content lines with bullet detection & sub-heading detection ──
+function ContentLines({ content, palette }: { content: string; palette: CVPalette }) {
   const lines = content.split('\n');
   return (
     <>
       {lines.map((line, i) => {
-        const trimmed = line.trim();
-        if (!trimmed) return null;
-        const isBullet = /^[-•*▸]/.test(trimmed);
-        const text = isBullet ? trimmed.replace(/^[-•*▸]\s*/, '') : trimmed;
+        const raw = cleanContent(line.trim());
+        if (!raw) return null;
+
+        const isBullet = /^[-•▸]/.test(raw);
+        const text = isBullet ? raw.replace(/^[-•▸]\s*/, '') : raw;
+
+        // Detect sub-headings: role titles (short, no bullet, followed by org/dates)
+        const isSubHeading = !isBullet && raw.length < 80 && /^[A-Z]/.test(raw) &&
+          (raw.includes('—') || raw.includes('–') || /^\w[\w\s]+$/.test(raw)) &&
+          i < lines.length - 1;
+
+        // Detect org/date lines (contains year pattern)
+        const isOrgDate = !isBullet && /\b(19|20)\d{2}\b/.test(raw) && raw.length < 100;
+
+        if (isSubHeading && !isOrgDate) {
+          return (
+            <div key={i} style={{
+              fontSize: '11pt',
+              fontWeight: 700,
+              color: palette.midTone,
+              marginTop: i > 0 ? '10px' : '0',
+              marginBottom: '2px',
+              lineHeight: '1.4',
+            }}>
+              {text}
+            </div>
+          );
+        }
+
+        if (isOrgDate) {
+          return (
+            <div key={i} style={{
+              fontSize: '10pt',
+              color: palette.accent,
+              fontWeight: 600,
+              fontStyle: 'italic',
+              marginBottom: '4px',
+              lineHeight: '1.4',
+            }}>
+              {text}
+            </div>
+          );
+        }
+
         return (
           <div key={i} style={{
             display: 'flex',
             alignItems: 'flex-start',
-            gap: '6px',
+            gap: '8px',
             marginBottom: '3px',
-            fontSize: isSidebar ? '9pt' : '10pt',
-            color: isSidebar ? palette.white : palette.darkText,
-            lineHeight: '1.5',
+            fontSize: '10pt',
+            color: palette.darkText,
+            lineHeight: '1.55',
           }}>
             {isBullet && (
-              <span style={{ color: palette.accent, fontWeight: 700, fontSize: '8pt', marginTop: '2px', flexShrink: 0 }}>▸</span>
+              <span style={{ color: palette.accent, fontWeight: 700, fontSize: '9pt', marginTop: '2px', flexShrink: 0 }}>▸</span>
             )}
             <span>{text}</span>
           </div>
@@ -115,7 +164,7 @@ function ContentLines({ content, palette, isSidebar }: { content: string; palett
   );
 }
 
-// ── Main Component ──
+// ── Main Component — Single Column Layout ──
 interface Props {
   sections: ResumeSection[];
   theme: ResumeTheme;
@@ -126,7 +175,6 @@ interface Props {
 const ResumePreview = forwardRef<HTMLDivElement, Props>(({ sections, theme, customColor, template }, ref) => {
   const visibleSections = sections.filter(s => s.visible);
 
-  // Default palette if no template
   const p: CVPalette = template?.palette ?? {
     navy: '#0A1F44',
     midTone: '#1A4A8A',
@@ -139,12 +187,12 @@ const ResumePreview = forwardRef<HTMLDivElement, Props>(({ sections, theme, cust
   };
 
   const headerSection = visibleSections.find(s => s.type === 'header');
-  const sidebarSections = visibleSections.filter(s => s.type !== 'header' && isSidebarSection(s));
-  const mainSections = visibleSections.filter(s => s.type !== 'header' && !isSidebarSection(s));
+  const bodySections = visibleSections.filter(s => s.type !== 'header');
 
   const headerLines = headerSection?.content.split('\n').filter(l => l.trim()) ?? [];
-  const personName = headerLines[0]?.trim() || 'Your Name';
-  const headerDetails = headerLines.slice(1);
+  const personName = cleanContent(headerLines[0]?.trim() || 'Your Name');
+  const tagline = cleanContent(headerLines[1]?.trim() || '');
+  const contactDetails = headerLines.slice(2).map(l => cleanContent(l.trim()));
 
   return (
     <div
@@ -157,35 +205,49 @@ const ResumePreview = forwardRef<HTMLDivElement, Props>(({ sections, theme, cust
         fontSize: '10pt',
         lineHeight: '1.5',
         overflow: 'hidden',
-        background: p.offWhite,
+        background: p.white,
       }}
     >
-      {/* ── HEADER BAR ── */}
+      {/* ── HEADER ── */}
       <div style={{
         background: p.navy,
-        padding: '28px 36px',
+        padding: '32px 44px 24px',
         color: p.white,
       }}>
         <h1 style={{
-          fontSize: '28pt',
+          fontSize: '30pt',
           fontWeight: 700,
           margin: 0,
-          letterSpacing: '2px',
+          letterSpacing: '2.5px',
           color: p.white,
           textTransform: 'uppercase',
         }}>
           {personName}
         </h1>
-        {headerDetails.length > 0 && (
-          <div style={{ marginTop: '6px' }}>
-            {headerDetails.map((line, i) => (
+        {tagline && (
+          <div style={{
+            fontSize: '12pt',
+            color: p.steel,
+            fontStyle: 'italic',
+            marginTop: '4px',
+            letterSpacing: '0.5px',
+          }}>
+            {tagline}
+          </div>
+        )}
+        {contactDetails.length > 0 && (
+          <div style={{
+            marginTop: '8px',
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '6px 16px',
+          }}>
+            {contactDetails.map((line, i) => (
               <span key={i} style={{
-                fontSize: i === 0 ? '12pt' : '10pt',
-                color: i === 0 ? p.steel : p.accent,
-                fontStyle: 'italic',
+                fontSize: '9.5pt',
+                color: p.accent,
               }}>
-                {i > 0 && <span style={{ margin: '0 8px', color: p.steel }}>|</span>}
-                {line.trim()}
+                {line}
               </span>
             ))}
           </div>
@@ -193,61 +255,31 @@ const ResumePreview = forwardRef<HTMLDivElement, Props>(({ sections, theme, cust
       </div>
 
       {/* ── ACCENT STRIPE ── */}
-      <div style={{ height: '4px', background: p.accent }} />
+      <div style={{ height: '4px', background: `linear-gradient(90deg, ${p.accent}, ${p.midTone})` }} />
 
-      {/* ── TWO-COLUMN BODY ── */}
-      <div style={{ display: 'flex', minHeight: 'calc(297mm - 100px)' }}>
-        {/* Sidebar */}
-        <div style={{
-          width: '27%',
-          background: p.midTone,
-          padding: '20px 16px',
-          color: p.white,
-          flexShrink: 0,
-        }}>
-          {sidebarSections.map(section => (
-            <div key={section.id} style={{ marginBottom: '16px' }}>
-              <div style={{
-                fontSize: '8.5pt',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                color: p.steel,
-                letterSpacing: '1px',
-                paddingBottom: '4px',
-                marginBottom: '8px',
-                borderBottom: `2px solid ${p.accent}`,
-              }}>
-                {section.title}
-              </div>
-              <ContentLines content={section.content} palette={p} isSidebar />
+      {/* ── SINGLE COLUMN BODY ── */}
+      <div style={{
+        padding: '24px 44px 40px',
+        background: p.white,
+      }}>
+        {bodySections.map(section => (
+          <div key={section.id} style={{ marginBottom: '18px' }}>
+            {/* Section heading */}
+            <div style={{
+              fontSize: '12pt',
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              color: p.navy,
+              letterSpacing: '1.5px',
+              paddingBottom: '5px',
+              marginBottom: '10px',
+              borderBottom: `3px solid ${p.accent}`,
+            }}>
+              {cleanContent(section.title)}
             </div>
-          ))}
-        </div>
-
-        {/* Main content */}
-        <div style={{
-          flex: 1,
-          padding: '16px 24px 24px 28px',
-          background: p.offWhite,
-        }}>
-          {mainSections.map(section => (
-            <div key={section.id} style={{ marginBottom: '16px' }}>
-              <div style={{
-                fontSize: '11pt',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                color: p.navy,
-                letterSpacing: '1px',
-                paddingBottom: '4px',
-                marginBottom: '8px',
-                borderBottom: `3px solid ${p.accent}`,
-              }}>
-                {section.title}
-              </div>
-              <ContentLines content={section.content} palette={p} />
-            </div>
-          ))}
-        </div>
+            <ContentLines content={section.content} palette={p} />
+          </div>
+        ))}
       </div>
     </div>
   );
