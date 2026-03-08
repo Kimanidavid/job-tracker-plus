@@ -149,7 +149,11 @@ export default function ResumeBuilder() {
       setResumeContent(content);
       const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
       if (!resumeTitle) setResumeTitle(nameWithoutExt);
-      toast({ title: 'CV uploaded & parsed', description: `Extracted ${content.length} characters from ${file.name}` });
+      // Auto-parse and jump to preview
+      const parsed = parseResumeToSections(content);
+      setSections(parsed);
+      setActiveTab('preview');
+      toast({ title: 'CV uploaded & ready', description: `Your CV is now displayed in the selected template.` });
     } catch (err: any) {
       toast({ title: 'Upload failed', description: err.message, variant: 'destructive' });
     }
