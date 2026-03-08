@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,12 +7,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { useResumes, callResumeAI } from '@/hooks/useResumes';
+import ResumePreview, { defaultThemes, parseResumeToSections, type ResumeSection, type ResumeTheme } from '@/components/ResumePreview';
+import { exportToDocx, exportToPdf } from '@/utils/exportResume';
 import {
   FileText, Upload, Wand2, Target, CheckCircle2,
   Sparkles, Save, Trash2, Copy, ArrowRight, Loader2,
-  AlertTriangle, Star, TrendingUp, BookOpen, FileUp
+  AlertTriangle, Star, TrendingUp, BookOpen, FileUp,
+  Download, Eye, Palette, GripVertical
 } from 'lucide-react';
 
 export default function ResumeBuilder() {
@@ -33,12 +38,69 @@ export default function ResumeBuilder() {
   const [selectedResumeId, setSelectedResumeId] = useState<string | null>(null);
   const [uploadLoading, setUploadLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
+
+  // Preview / customization state
+  const [selectedTheme, setSelectedTheme] = useState<ResumeTheme>(defaultThemes[1]);
+  const [customColor, setCustomColor] = useState('');
+  const [sections, setSections] = useState<ResumeSection[]>([]);
+  const [exportLoading, setExportLoading] = useState(false);
+
+  const activeContent = tailoredContent || resumeContent;
+
+  // Parse sections whenever we enter preview tab
+  const parsedSections = useMemo(() => parseResumeToSections(activeContent), [activeContent]);
+
+  const handleOpenPreview = () => {
+    if (!activeContent.trim()) {
+      toast({ title: 'No resume content to preview', variant: 'destructive' });
+      return;
+    }
+    setSections(parseResumeToSections(activeContent));
+    setActiveTab('preview');
+  };
+
+  const toggleSectionVisibility = (id: string) => {
+    setSections(prev => prev.map(s => s.id === id ? { ...s, visible: !s.visible } : s));
+  };
+
+  const moveSectionUp = (index: number) => {
+    if (index <= 0) return;
+    setSections(prev => {
+      const next = [...prev];
+      [next[index - 1], next[index]] = [next[index], next[index - 1]];
+      return next;
+    });
+  };
+
+  const handleExportDocx = async () => {
+    setExportLoading(true);
+    try {
+      await exportToDocx(sections.length ? sections : parsedSections, selectedTheme, `${resumeTitle || 'resume'}.docx`);
+      toast({ title: 'DOCX downloaded!' });
+    } catch (err: any) {
+      toast({ title: 'Export failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
+  const handleExportPdf = async () => {
+    setExportLoading(true);
+    try {
+      await exportToPdf('resume-preview', `${resumeTitle || 'resume'}.pdf`);
+      toast({ title: 'PDF downloaded!' });
+    } catch (err: any) {
+      toast({ title: 'Export failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setExportLoading(false);
+    }
+  };
 
   const parseUploadedFile = async (file: File) => {
     setUploadLoading(true);
     try {
       const ext = file.name.split('.').pop()?.toLowerCase();
-
       if (ext === 'pdf') {
         const pdfjsLib = await import('pdfjs-dist');
         pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
@@ -69,15 +131,11 @@ export default function ResumeBuilder() {
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    // Reset input so the same file can be re-selected
     if (fileInputRef.current) fileInputRef.current.value = '';
-
     if (file.size > 10 * 1024 * 1024) {
       toast({ title: 'File too large', description: 'Max file size is 10MB', variant: 'destructive' });
       return;
     }
-
     try {
       const content = await parseUploadedFile(file);
       if (!content) {
@@ -122,10 +180,7 @@ export default function ResumeBuilder() {
     }
     setAiLoading(true);
     try {
-      const result = await callResumeAI('tailor', {
-        resume: resumeContent,
-        jobDescription,
-      });
+      const result = await callResumeAI('tailor', { resume: resumeContent, jobDescription });
       setTailoredContent(result);
       setActiveTab('result');
       toast({ title: 'Resume tailored successfully!' });
@@ -144,10 +199,7 @@ export default function ResumeBuilder() {
     }
     setAiLoading(true);
     try {
-      const result = await callResumeAI('score', {
-        resume: contentToScore,
-        jobDescription,
-      });
+      const result = await callResumeAI('score', { resume: contentToScore, jobDescription });
       setScoreData(result);
       setActiveTab('score');
     } catch (err: any) {
@@ -183,10 +235,7 @@ export default function ResumeBuilder() {
     }
     setAiLoading(true);
     try {
-      const result = await callResumeAI('edit', {
-        resume: content,
-        editInstruction,
-      });
+      const result = await callResumeAI('edit', { resume: content, editInstruction });
       setTailoredContent(result);
       setEditInstruction('');
       toast({ title: 'Edit applied!' });
@@ -209,8 +258,7 @@ export default function ResumeBuilder() {
   };
 
   const handleCopy = () => {
-    const content = tailoredContent || resumeContent;
-    navigator.clipboard.writeText(content);
+    navigator.clipboard.writeText(activeContent);
     toast({ title: 'Copied to clipboard' });
   };
 
@@ -238,7 +286,7 @@ export default function ResumeBuilder() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="base" className="flex items-center gap-1.5">
             <FileText className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Base Resume</span>
@@ -253,6 +301,11 @@ export default function ResumeBuilder() {
             <Sparkles className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Result</span>
             <span className="sm:hidden">Result</span>
+          </TabsTrigger>
+          <TabsTrigger value="preview" className="flex items-center gap-1.5">
+            <Eye className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Preview & Export</span>
+            <span className="sm:hidden">Preview</span>
           </TabsTrigger>
           <TabsTrigger value="score" className="flex items-center gap-1.5">
             <TrendingUp className="w-3.5 h-3.5" />
@@ -344,6 +397,10 @@ export default function ResumeBuilder() {
                   <Button variant="secondary" onClick={handleFix} disabled={aiLoading || !resumeContent.trim()}>
                     <Wand2 className="w-4 h-4 mr-1" />
                     AI Fix & Improve
+                  </Button>
+                  <Button variant="outline" onClick={handleOpenPreview} disabled={!resumeContent.trim()}>
+                    <Eye className="w-4 h-4 mr-1" />
+                    Preview & Export
                   </Button>
                   <Button variant="outline" onClick={handleCopy} disabled={!resumeContent.trim()}>
                     <Copy className="w-4 h-4 mr-1" />
@@ -493,6 +550,10 @@ export default function ResumeBuilder() {
                   <CardDescription>AI-optimized for the target job. Edit directly or use AI edit below.</CardDescription>
                 </div>
                 <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={handleOpenPreview} disabled={!tailoredContent.trim()}>
+                    <Eye className="w-3.5 h-3.5 mr-1" />
+                    Preview
+                  </Button>
                   <Button variant="outline" size="sm" onClick={handleCopy}>
                     <Copy className="w-3.5 h-3.5 mr-1" />
                     Copy
@@ -549,6 +610,142 @@ export default function ResumeBuilder() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* PREVIEW & EXPORT TAB */}
+        <TabsContent value="preview" className="space-y-4">
+          <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
+            {/* Sidebar controls */}
+            <div className="space-y-4">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Palette className="w-4 h-4" />
+                    Theme & Style
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium">Template</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {defaultThemes.map(t => (
+                        <button
+                          key={t.id}
+                          onClick={() => { setSelectedTheme(t); setCustomColor(''); }}
+                          className={`p-2 rounded-md border text-xs font-medium text-left transition-all ${
+                            selectedTheme.id === t.id ? 'border-primary ring-2 ring-primary/20 bg-primary/5' : 'hover:bg-accent/50'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: t.primaryColor }} />
+                            {t.name}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium">Custom Accent Color</Label>
+                    <div className="flex gap-2 items-center">
+                      <input
+                        type="color"
+                        value={customColor || selectedTheme.primaryColor}
+                        onChange={(e) => setCustomColor(e.target.value)}
+                        className="w-8 h-8 rounded cursor-pointer border-0"
+                      />
+                      <Input
+                        value={customColor || selectedTheme.primaryColor}
+                        onChange={(e) => setCustomColor(e.target.value)}
+                        placeholder="#2563eb"
+                        className="font-mono text-xs"
+                      />
+                      {customColor && (
+                        <Button variant="ghost" size="sm" onClick={() => setCustomColor('')} className="text-xs">
+                          Reset
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg">Sections</CardTitle>
+                  <CardDescription className="text-xs">Toggle visibility or reorder sections</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="max-h-[300px]">
+                    <div className="space-y-1.5">
+                      {(sections.length ? sections : parsedSections).map((section, idx) => (
+                        <div key={section.id} className="flex items-center gap-2 p-2 rounded-md border bg-card">
+                          <button onClick={() => moveSectionUp(idx)} className="text-muted-foreground hover:text-foreground">
+                            <GripVertical className="w-3.5 h-3.5" />
+                          </button>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-xs font-medium truncate block">{section.title}</span>
+                          </div>
+                          <Switch
+                            checked={section.visible}
+                            onCheckedChange={() => toggleSectionVisibility(section.id)}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Download className="w-4 h-4" />
+                    Export
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <Button className="w-full justify-start" onClick={handleExportPdf} disabled={exportLoading}>
+                    {exportLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileText className="w-4 h-4 mr-2" />}
+                    Download PDF
+                  </Button>
+                  <Button variant="secondary" className="w-full justify-start" onClick={handleExportDocx} disabled={exportLoading}>
+                    {exportLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileText className="w-4 h-4 mr-2" />}
+                    Download DOCX
+                  </Button>
+                  <Button variant="outline" className="w-full justify-start" onClick={handleCopy}>
+                    <Copy className="w-4 h-4 mr-2" />
+                    Copy as Text
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Live Preview */}
+            <Card className="overflow-hidden">
+              <CardContent className="p-0">
+                <ScrollArea className="h-[800px]">
+                  <div className="p-4 bg-muted/30 flex justify-center">
+                    {activeContent.trim() ? (
+                      <div className="transform origin-top" style={{ transform: 'scale(0.75)' }}>
+                        <ResumePreview
+                          ref={previewRef}
+                          sections={sections.length ? sections : parsedSections}
+                          theme={selectedTheme}
+                          customColor={customColor || undefined}
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
+                        <Eye className="w-8 h-8 mb-3 opacity-50" />
+                        <p>Add resume content to see a live preview.</p>
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         {/* SCORE TAB */}
