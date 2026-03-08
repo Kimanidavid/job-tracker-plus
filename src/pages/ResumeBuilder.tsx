@@ -655,14 +655,14 @@ export default function ResumeBuilder() {
                     <div className="flex gap-2 items-center">
                       <input
                         type="color"
-                        value={customColor || selectedTemplate.palette.primary}
+                        value={customColor || selectedTemplate.palette.accent}
                         onChange={(e) => setCustomColor(e.target.value)}
                         className="w-8 h-8 rounded cursor-pointer border-0"
                       />
                       <Input
-                        value={customColor || selectedTemplate.palette.primary}
+                        value={customColor || selectedTemplate.palette.accent}
                         onChange={(e) => setCustomColor(e.target.value)}
-                        placeholder="#2563eb"
+                        placeholder="#2E7DD1"
                         className="font-mono text-xs"
                       />
                       {customColor && (
