@@ -353,44 +353,73 @@ export default function ResumeBuilder() {
     toast({ title: 'Copied to clipboard' });
   };
 
-  // Chat-based AI CV editing
-  const handleChatSend = async () => {
-    const msg = chatInput.trim();
+  // Chat-based AI CV editing with full control
+  const handleChatSend = async (customMsg?: string) => {
+    const msg = (customMsg || chatInput).trim();
     if (!msg || chatLoading) return;
-    setChatInput('');
+    if (!customMsg) setChatInput('');
     setChatMessages(prev => [...prev, { role: 'user', content: msg }]);
     setChatLoading(true);
     try {
       // Build current resume text from sections
       const currentSections = sections.length ? sections : parsedSections;
+      if (currentSections.length === 0) {
+        setChatMessages(prev => [...prev, { role: 'assistant', content: 'Please upload a CV first before I can edit it.' }]);
+        setChatLoading(false);
+        return;
+      }
+      
       const resumeText = currentSections.map(s => {
         if (s.type === 'header') return s.content;
         return `${s.title}\n${s.content}`;
       }).join('\n\n');
 
-      const result = await callResumeAI('edit', { resume: resumeText, editInstruction: msg });
+      // Enhanced edit instruction with context
+      const enhancedInstruction = `You have full control to edit this CV. The user's request: "${msg}"
+
+Guidelines:
+- Make precise, targeted edits based on the request
+- Preserve all other content that wasn't asked to be changed
+- Keep formatting consistent (use bullet points with -)
+- For adding sections, create them with appropriate titles
+- For removing content, remove it completely
+- For rewording, improve clarity while keeping meaning
+- If asked to add keywords, integrate them naturally into relevant sections
+
+Apply the requested changes and return the complete updated CV.`;
+
+      const result = await callResumeAI('edit', { resume: resumeText, editInstruction: enhancedInstruction });
       if (result) {
-        // Re-format through AI
+        // Re-format through AI to structure properly
         try {
           const formatted = await callResumeAI('format', { resume: result });
           if (formatted && formatted.person_name) {
             const aiSections = convertAIFormatToSections(formatted);
             setSections(aiSections);
+            setChatMessages(prev => [...prev, { role: 'assistant', content: '✓ Done! Your CV has been updated. Check the preview.' }]);
           } else {
             setSections(parseResumeToSections(result));
+            setChatMessages(prev => [...prev, { role: 'assistant', content: '✓ Changes applied! (Basic formatting used)' }]);
           }
         } catch {
           setSections(parseResumeToSections(result));
+          setChatMessages(prev => [...prev, { role: 'assistant', content: '✓ Changes applied!' }]);
         }
-        setChatMessages(prev => [...prev, { role: 'assistant', content: 'Done! I\'ve updated your CV with the requested changes.' }]);
       }
     } catch (err: any) {
-      setChatMessages(prev => [...prev, { role: 'assistant', content: `Error: ${err.message}` }]);
+      setChatMessages(prev => [...prev, { role: 'assistant', content: `⚠️ Error: ${err.message}` }]);
     } finally {
       setChatLoading(false);
       setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
     }
   };
+
+  const quickEditActions = [
+    { label: 'Shorten', prompt: 'Make all descriptions more concise and shorter' },
+    { label: 'Add Keywords', prompt: 'Add more relevant technical keywords throughout' },
+    { label: 'Improve Bullets', prompt: 'Rewrite bullet points with stronger action verbs and quantified results' },
+    { label: 'Fix Grammar', prompt: 'Fix any grammar or spelling issues' },
+  ];
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
