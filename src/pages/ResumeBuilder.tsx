@@ -44,6 +44,7 @@ export default function ResumeBuilder() {
 
   // Preview / customization state
   const [selectedTheme, setSelectedTheme] = useState<ResumeTheme>(defaultThemes[1]);
+  const [selectedTemplate, setSelectedTemplate] = useState<ResumeTemplate | null>(resumeTemplates[0]);
   const [customColor, setCustomColor] = useState('');
   const [sections, setSections] = useState<ResumeSection[]>([]);
   const [exportLoading, setExportLoading] = useState(false);
