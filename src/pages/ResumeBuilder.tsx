@@ -744,73 +744,70 @@ export default function ResumeBuilder() {
 
         {/* PREVIEW & EXPORT TAB */}
         <TabsContent value="preview" className="space-y-4">
-          <div className="grid gap-4 lg:grid-cols-[320px_1fr_320px]">
-            {/* Left sidebar — Templates + Sections + Export */}
-            <div className="space-y-4">
+          <div className="grid gap-4 lg:grid-cols-[240px_1fr_320px]">
+            {/* Left sidebar — Color themes + Sections + Export */}
+            <div className="space-y-3">
+              {/* Color theme buttons */}
               <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <LayoutTemplate className="w-4 h-4" />
-                    Templates
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Palette className="w-4 h-4" />
+                    Color Theme
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <TemplateCatalogue
-                    selectedTemplate={selectedTemplate}
-                    onSelect={(t) => {
-                      setSelectedTemplate(t);
-                      setSelectedTheme(templateToTheme(t));
-                      setCustomColor('');
-                    }}
-                  />
-                </CardContent>
-              </Card>
-
-              {selectedTemplate && (
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm flex items-center gap-2">
-                      <Palette className="w-4 h-4" />
-                      Accent Color
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {resumeTemplates.map(t => {
+                      const isActive = selectedTemplate?.id === t.id;
+                      return (
+                        <button
+                          key={t.id}
+                          title={t.name}
+                          onClick={() => {
+                            setSelectedTemplate(t);
+                            setSelectedTheme(templateToTheme(t));
+                            setCustomColor('');
+                          }}
+                          className={`w-7 h-7 rounded-full border-2 transition-all hover:scale-110 ${
+                            isActive ? 'border-foreground ring-2 ring-primary/40 scale-110' : 'border-transparent'
+                          }`}
+                          style={{ background: `linear-gradient(135deg, ${t.palette.navy}, ${t.palette.accent})` }}
+                        />
+                      );
+                    })}
+                  </div>
+                  {selectedTemplate && (
                     <div className="flex gap-2 items-center">
                       <input
                         type="color"
                         value={customColor || selectedTemplate.palette.accent}
                         onChange={(e) => setCustomColor(e.target.value)}
-                        className="w-8 h-8 rounded cursor-pointer border-0"
+                        className="w-6 h-6 rounded cursor-pointer border-0"
                       />
-                      <Input
-                        value={customColor || selectedTemplate.palette.accent}
-                        onChange={(e) => setCustomColor(e.target.value)}
-                        placeholder="#2E7DD1"
-                        className="font-mono text-xs"
-                      />
+                      <span className="text-[10px] text-muted-foreground">{selectedTemplate.name}</span>
                       {customColor && (
-                        <Button variant="ghost" size="sm" onClick={() => setCustomColor('')} className="text-xs">
+                        <Button variant="ghost" size="sm" onClick={() => setCustomColor('')} className="text-[10px] h-5 px-1">
                           Reset
                         </Button>
                       )}
                     </div>
-                  </CardContent>
-                </Card>
-              )}
+                  )}
+                </CardContent>
+              </Card>
 
               <Card>
-                <CardHeader className="pb-3">
+                <CardHeader className="pb-2">
                   <CardTitle className="text-sm">Sections</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ScrollArea className="max-h-[200px]">
-                    <div className="space-y-1.5">
+                    <div className="space-y-1">
                       {(sections.length ? sections : parsedSections).map((section, idx) => (
-                        <div key={section.id} className="flex items-center gap-2 p-1.5 rounded-md border bg-card">
+                        <div key={section.id} className="flex items-center gap-1.5 p-1 rounded-md border bg-card">
                           <button onClick={() => moveSectionUp(idx)} className="text-muted-foreground hover:text-foreground">
-                            <GripVertical className="w-3.5 h-3.5" />
+                            <GripVertical className="w-3 h-3" />
                           </button>
-                          <span className="flex-1 text-xs font-medium truncate">{section.title}</span>
+                          <span className="flex-1 text-[11px] font-medium truncate">{section.title}</span>
                           <Switch
                             checked={section.visible}
                             onCheckedChange={() => toggleSectionVisibility(section.id)}
@@ -823,20 +820,20 @@ export default function ResumeBuilder() {
               </Card>
 
               <Card>
-                <CardHeader className="pb-3">
+                <CardHeader className="pb-2">
                   <CardTitle className="text-sm flex items-center gap-2">
-                    <Download className="w-4 h-4" />
+                    <Download className="w-3.5 h-3.5" />
                     Export
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-2">
+                <CardContent className="space-y-1.5">
                   <Button className="w-full justify-start" size="sm" onClick={handleExportPdf} disabled={exportLoading}>
-                    {exportLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileText className="w-4 h-4 mr-2" />}
-                    Download PDF
+                    {exportLoading ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : <FileText className="w-3.5 h-3.5 mr-2" />}
+                    PDF
                   </Button>
                   <Button variant="secondary" className="w-full justify-start" size="sm" onClick={handleExportDocx} disabled={exportLoading}>
-                    {exportLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileText className="w-4 h-4 mr-2" />}
-                    Download DOCX
+                    {exportLoading ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : <FileText className="w-3.5 h-3.5 mr-2" />}
+                    DOCX
                   </Button>
                 </CardContent>
               </Card>
