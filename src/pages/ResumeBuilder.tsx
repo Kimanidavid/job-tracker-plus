@@ -944,7 +944,7 @@ Apply the requested changes and return the complete updated CV.`;
                     className="text-xs h-8"
                     disabled={chatLoading}
                   />
-                  <Button size="icon" className="h-8 w-8 shrink-0" onClick={handleChatSend} disabled={chatLoading || !chatInput.trim()}>
+                  <Button size="icon" className="h-8 w-8 shrink-0" onClick={() => handleChatSend()} disabled={chatLoading || !chatInput.trim()}>
                     <Send className="w-3.5 h-3.5" />
                   </Button>
                 </div>
