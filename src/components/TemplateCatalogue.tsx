@@ -1,9 +1,8 @@
 import { useState } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Check, Palette } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { resumeTemplates, templateCategories, type ResumeTemplate } from '@/data/resumeTemplates';
 
 interface Props {
@@ -40,6 +39,7 @@ export default function TemplateCatalogue({ selectedTemplate, onSelect }: Props)
         <div className="grid grid-cols-2 gap-3 pr-2">
           {filtered.map(template => {
             const isSelected = selectedTemplate?.id === template.id;
+            const p = template.palette;
             return (
               <button
                 key={template.id}
@@ -50,18 +50,26 @@ export default function TemplateCatalogue({ selectedTemplate, onSelect }: Props)
                     : 'border-border hover:border-primary/40 hover:shadow-sm'
                 }`}
               >
-                {/* Color preview bar */}
-                <div
-                  className="h-20 w-full relative overflow-hidden"
-                  style={{ background: template.preview.gradient }}
-                >
-                  {/* Mini preview mockup */}
-                  <div className="absolute inset-2 flex flex-col items-center justify-center">
-                    <div className="w-16 h-1.5 rounded-full bg-white/80 mb-1" />
-                    <div className="w-10 h-1 rounded-full bg-white/50 mb-2" />
-                    <div className="flex gap-1">
-                      {[template.palette.primary, template.palette.secondary, template.palette.accent].map((c, i) => (
-                        <div key={i} className="w-3 h-3 rounded-full border border-white/30" style={{ background: c }} />
+                {/* Mini CV mockup */}
+                <div className="relative" style={{ background: p.offWhite }}>
+                  {/* Header bar */}
+                  <div style={{ background: p.navy, padding: '8px 10px' }}>
+                    <div style={{ width: '60%', height: '6px', borderRadius: '3px', background: p.white, opacity: 0.9, marginBottom: '3px' }} />
+                    <div style={{ width: '40%', height: '3px', borderRadius: '2px', background: p.steel, opacity: 0.7 }} />
+                  </div>
+                  {/* Accent stripe */}
+                  <div style={{ height: '2px', background: p.accent }} />
+                  {/* Two columns */}
+                  <div style={{ display: 'flex', height: '52px' }}>
+                    <div style={{ width: '27%', background: p.midTone, padding: '6px 4px' }}>
+                      {[1, 2, 3].map(i => (
+                        <div key={i} style={{ width: '80%', height: '2px', borderRadius: '1px', background: p.steel, opacity: 0.5, marginBottom: '4px' }} />
+                      ))}
+                    </div>
+                    <div style={{ flex: 1, padding: '6px 8px' }}>
+                      <div style={{ width: '50%', height: '3px', borderRadius: '1px', background: p.accent, marginBottom: '4px' }} />
+                      {[1, 2, 3].map(i => (
+                        <div key={i} style={{ width: `${90 - i * 10}%`, height: '2px', borderRadius: '1px', background: p.darkText, opacity: 0.2, marginBottom: '3px' }} />
                       ))}
                     </div>
                   </div>
@@ -74,7 +82,7 @@ export default function TemplateCatalogue({ selectedTemplate, onSelect }: Props)
                 </div>
 
                 {/* Info */}
-                <div className="p-2.5" style={{ background: template.preview.thumbnailBg }}>
+                <div className="p-2.5 bg-card">
                   <div className="flex items-center gap-1.5 mb-0.5">
                     <span className="text-xs font-semibold text-foreground truncate">{template.name}</span>
                     <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 capitalize">
@@ -87,7 +95,7 @@ export default function TemplateCatalogue({ selectedTemplate, onSelect }: Props)
 
                   {/* Palette dots */}
                   <div className="flex gap-1 mt-1.5">
-                    {[template.palette.primary, template.palette.secondary, template.palette.accent, template.palette.divider].map((c, i) => (
+                    {[p.navy, p.midTone, p.accent, p.steel, p.light].map((c, i) => (
                       <div key={i} className="w-2.5 h-2.5 rounded-full border border-border/50" style={{ background: c }} />
                     ))}
                   </div>
