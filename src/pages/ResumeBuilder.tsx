@@ -353,44 +353,73 @@ export default function ResumeBuilder() {
     toast({ title: 'Copied to clipboard' });
   };
 
-  // Chat-based AI CV editing
-  const handleChatSend = async () => {
-    const msg = chatInput.trim();
+  // Chat-based AI CV editing with full control
+  const handleChatSend = async (customMsg?: string) => {
+    const msg = (customMsg || chatInput).trim();
     if (!msg || chatLoading) return;
-    setChatInput('');
+    if (!customMsg) setChatInput('');
     setChatMessages(prev => [...prev, { role: 'user', content: msg }]);
     setChatLoading(true);
     try {
       // Build current resume text from sections
       const currentSections = sections.length ? sections : parsedSections;
+      if (currentSections.length === 0) {
+        setChatMessages(prev => [...prev, { role: 'assistant', content: 'Please upload a CV first before I can edit it.' }]);
+        setChatLoading(false);
+        return;
+      }
+      
       const resumeText = currentSections.map(s => {
         if (s.type === 'header') return s.content;
         return `${s.title}\n${s.content}`;
       }).join('\n\n');
 
-      const result = await callResumeAI('edit', { resume: resumeText, editInstruction: msg });
+      // Enhanced edit instruction with context
+      const enhancedInstruction = `You have full control to edit this CV. The user's request: "${msg}"
+
+Guidelines:
+- Make precise, targeted edits based on the request
+- Preserve all other content that wasn't asked to be changed
+- Keep formatting consistent (use bullet points with -)
+- For adding sections, create them with appropriate titles
+- For removing content, remove it completely
+- For rewording, improve clarity while keeping meaning
+- If asked to add keywords, integrate them naturally into relevant sections
+
+Apply the requested changes and return the complete updated CV.`;
+
+      const result = await callResumeAI('edit', { resume: resumeText, editInstruction: enhancedInstruction });
       if (result) {
-        // Re-format through AI
+        // Re-format through AI to structure properly
         try {
           const formatted = await callResumeAI('format', { resume: result });
           if (formatted && formatted.person_name) {
             const aiSections = convertAIFormatToSections(formatted);
             setSections(aiSections);
+            setChatMessages(prev => [...prev, { role: 'assistant', content: '✓ Done! Your CV has been updated. Check the preview.' }]);
           } else {
             setSections(parseResumeToSections(result));
+            setChatMessages(prev => [...prev, { role: 'assistant', content: '✓ Changes applied! (Basic formatting used)' }]);
           }
         } catch {
           setSections(parseResumeToSections(result));
+          setChatMessages(prev => [...prev, { role: 'assistant', content: '✓ Changes applied!' }]);
         }
-        setChatMessages(prev => [...prev, { role: 'assistant', content: 'Done! I\'ve updated your CV with the requested changes.' }]);
       }
     } catch (err: any) {
-      setChatMessages(prev => [...prev, { role: 'assistant', content: `Error: ${err.message}` }]);
+      setChatMessages(prev => [...prev, { role: 'assistant', content: `⚠️ Error: ${err.message}` }]);
     } finally {
       setChatLoading(false);
       setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
     }
   };
+
+  const quickEditActions = [
+    { label: 'Shorten', prompt: 'Make all descriptions more concise and shorter' },
+    { label: 'Add Keywords', prompt: 'Add more relevant technical keywords throughout' },
+    { label: 'Improve Bullets', prompt: 'Rewrite bullet points with stronger action verbs and quantified results' },
+    { label: 'Fix Grammar', prompt: 'Fix any grammar or spelling issues' },
+  ];
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -870,17 +899,35 @@ export default function ResumeBuilder() {
                   <MessageSquare className="w-4 h-4" />
                   AI CV Editor
                 </CardTitle>
-                <CardDescription className="text-xs">Tell AI what to change in your CV</CardDescription>
+                <CardDescription className="text-xs">Full control to edit your CV</CardDescription>
               </CardHeader>
               <CardContent className="flex-1 flex flex-col p-3 pt-0 min-h-0">
+                {/* Quick action buttons */}
+                <div className="flex flex-wrap gap-1 mb-2 shrink-0">
+                  {quickEditActions.map(action => (
+                    <Button
+                      key={action.label}
+                      variant="outline"
+                      size="sm"
+                      className="h-6 text-[10px] px-2"
+                      disabled={chatLoading || (sections.length === 0 && parsedSections.length === 0)}
+                      onClick={() => handleChatSend(action.prompt)}
+                    >
+                      {action.label}
+                    </Button>
+                  ))}
+                </div>
+
                 {/* Chat messages */}
                 <ScrollArea className="flex-1 mb-3">
                   <div className="space-y-2 pr-2">
                     {chatMessages.length === 0 && (
-                      <div className="text-xs text-muted-foreground text-center py-8">
+                      <div className="text-xs text-muted-foreground text-center py-6">
                         <Sparkles className="w-5 h-5 mx-auto mb-2 opacity-40" />
                         <p>Ask AI to edit your CV.</p>
-                        <p className="mt-1 opacity-70">e.g. "Make the summary shorter" or "Add more Python keywords"</p>
+                        <p className="mt-1 opacity-70 text-[10px]">
+                          Try: "Add a projects section" · "Remove education" · "Make summary shorter"
+                        </p>
                       </div>
                     )}
                     {chatMessages.map((msg, i) => (
@@ -911,11 +958,11 @@ export default function ResumeBuilder() {
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleChatSend()}
-                    placeholder="e.g. Add a skills section..."
+                    placeholder="Type any edit instruction..."
                     className="text-xs h-8"
                     disabled={chatLoading}
                   />
-                  <Button size="icon" className="h-8 w-8 shrink-0" onClick={handleChatSend} disabled={chatLoading || !chatInput.trim()}>
+                  <Button size="icon" className="h-8 w-8 shrink-0" onClick={() => handleChatSend()} disabled={chatLoading || !chatInput.trim()}>
                     <Send className="w-3.5 h-3.5" />
                   </Button>
                 </div>
