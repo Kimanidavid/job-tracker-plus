@@ -899,17 +899,35 @@ Apply the requested changes and return the complete updated CV.`;
                   <MessageSquare className="w-4 h-4" />
                   AI CV Editor
                 </CardTitle>
-                <CardDescription className="text-xs">Tell AI what to change in your CV</CardDescription>
+                <CardDescription className="text-xs">Full control to edit your CV</CardDescription>
               </CardHeader>
               <CardContent className="flex-1 flex flex-col p-3 pt-0 min-h-0">
+                {/* Quick action buttons */}
+                <div className="flex flex-wrap gap-1 mb-2 shrink-0">
+                  {quickEditActions.map(action => (
+                    <Button
+                      key={action.label}
+                      variant="outline"
+                      size="sm"
+                      className="h-6 text-[10px] px-2"
+                      disabled={chatLoading || (sections.length === 0 && parsedSections.length === 0)}
+                      onClick={() => handleChatSend(action.prompt)}
+                    >
+                      {action.label}
+                    </Button>
+                  ))}
+                </div>
+
                 {/* Chat messages */}
                 <ScrollArea className="flex-1 mb-3">
                   <div className="space-y-2 pr-2">
                     {chatMessages.length === 0 && (
-                      <div className="text-xs text-muted-foreground text-center py-8">
+                      <div className="text-xs text-muted-foreground text-center py-6">
                         <Sparkles className="w-5 h-5 mx-auto mb-2 opacity-40" />
                         <p>Ask AI to edit your CV.</p>
-                        <p className="mt-1 opacity-70">e.g. "Make the summary shorter" or "Add more Python keywords"</p>
+                        <p className="mt-1 opacity-70 text-[10px]">
+                          Try: "Add a projects section" · "Remove education" · "Make summary shorter"
+                        </p>
                       </div>
                     )}
                     {chatMessages.map((msg, i) => (
@@ -940,7 +958,7 @@ Apply the requested changes and return the complete updated CV.`;
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleChatSend()}
-                    placeholder="e.g. Add a skills section..."
+                    placeholder="Type any edit instruction..."
                     className="text-xs h-8"
                     disabled={chatLoading}
                   />
