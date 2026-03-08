@@ -18,6 +18,23 @@ serve(async (req) => {
     let userPrompt = "";
 
     switch (action) {
+      case "format":
+        systemPrompt = `You are an expert resume formatter. Given raw resume text, you must extract and structure ALL the information into clearly categorized sections for a professional two-column CV layout.
+
+The CV has two areas:
+1. SIDEBAR sections (left column): Contact info, Education, Programming/Technical skills, Tools, Languages, Certifications, Specialisations — short, list-based content.
+2. MAIN sections (right column): Professional Profile/Summary, Work Experience, Projects, Key Strengths, Expertise areas — longer narrative and bullet-point content.
+
+Rules:
+- Extract the person's full name and any title/tagline (e.g. "Data Annotator") from the header.
+- For sidebar sections, format skills/items as bullet lists with "- " prefix.
+- For main sections, keep bullet points with "- " prefix and preserve role titles, company names, and date ranges on their own lines.
+- Include ALL content from the original resume — do not omit anything.
+- If a section has sub-items (e.g. role title, then company, then bullets), keep them as separate lines within the section content.
+- Use the format_resume tool to return the structured result.`;
+        userPrompt = `Here is the raw resume text to structure:\n\n${resume}`;
+        break;
+
       case "tailor":
         systemPrompt = `You are an expert resume writer and ATS optimization specialist. Your job is to tailor a resume to match a specific job description while keeping the content truthful and professional. 
 
@@ -70,7 +87,61 @@ Return ONLY the improved resume text, no explanations.`;
       ],
     };
 
-    // Use tool calling for structured score output
+    // Tool calling for format action
+    if (action === "format") {
+      body.tools = [
+        {
+          type: "function",
+          function: {
+            name: "format_resume",
+            description: "Return a structured resume with sections categorized for a two-column layout",
+            parameters: {
+              type: "object",
+              properties: {
+                person_name: { type: "string", description: "Full name of the person" },
+                tagline: { type: "string", description: "Professional title or tagline, e.g. 'Data Annotator | AI Enthusiast'" },
+                contact_lines: {
+                  type: "array",
+                  items: { type: "string" },
+                  description: "Contact details: email, phone, location, LinkedIn etc. Each as a separate string."
+                },
+                sidebar_sections: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      title: { type: "string", description: "Section heading, e.g. 'Education', 'Programming', 'Specialisations'" },
+                      content: { type: "string", description: "Section content. Use '- ' prefix for bullet items, newlines to separate lines." }
+                    },
+                    required: ["title", "content"],
+                    additionalProperties: false
+                  },
+                  description: "Sections for the sidebar (left column): education, skills, tools, languages, certifications"
+                },
+                main_sections: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      title: { type: "string", description: "Section heading, e.g. 'Professional Profile', 'Work Experience'" },
+                      content: { type: "string", description: "Section content with full text. Use '- ' for bullets. Keep role titles, orgs, dates on separate lines." }
+                    },
+                    required: ["title", "content"],
+                    additionalProperties: false
+                  },
+                  description: "Sections for the main area (right column): profile, experience, expertise, strengths"
+                }
+              },
+              required: ["person_name", "tagline", "contact_lines", "sidebar_sections", "main_sections"],
+              additionalProperties: false
+            }
+          }
+        }
+      ];
+      body.tool_choice = { type: "function", function: { name: "format_resume" } };
+    }
+
+    // Tool calling for score action
     if (action === "score") {
       body.tools = [
         {
@@ -153,11 +224,11 @@ Return ONLY the improved resume text, no explanations.`;
 
     const data = await response.json();
 
-    if (action === "score") {
+    if (action === "format" || action === "score") {
       const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
       if (toolCall) {
-        const scoreData = JSON.parse(toolCall.function.arguments);
-        return new Response(JSON.stringify({ result: scoreData }), {
+        const structured = JSON.parse(toolCall.function.arguments);
+        return new Response(JSON.stringify({ result: structured }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
