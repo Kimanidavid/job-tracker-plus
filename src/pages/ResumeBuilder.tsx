@@ -459,8 +459,8 @@ export default function ResumeBuilder() {
                 <CardContent className="space-y-6">
                   <div className="flex flex-col items-center">
                     <div className={`text-5xl font-bold ${
-                      scoreData.overall_score >= 80 ? 'text-green-600' :
-                      scoreData.overall_score >= 60 ? 'text-yellow-600' : 'text-destructive'
+                      scoreData.overall_score >= 80 ? 'text-status-employed' :
+                      scoreData.overall_score >= 60 ? 'text-status-interview' : 'text-destructive'
                     }`}>
                       {scoreData.overall_score}
                     </div>
