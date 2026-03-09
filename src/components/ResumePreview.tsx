@@ -210,15 +210,16 @@ const ResumePreview = forwardRef<HTMLDivElement, Props>(({ sections, theme, cust
     >
       {/* ── HEADER ── */}
       <div style={{
+        background: p.navy,
         padding: '32px 44px 24px',
-        borderBottom: `3px solid ${p.accent}`,
+        color: p.white,
       }}>
         <h1 style={{
           fontSize: '30pt',
           fontWeight: 700,
           margin: 0,
           letterSpacing: '2.5px',
-          color: p.navy,
+          color: p.white,
           textTransform: 'uppercase',
         }}>
           {personName}
@@ -226,7 +227,7 @@ const ResumePreview = forwardRef<HTMLDivElement, Props>(({ sections, theme, cust
         {tagline && (
           <div style={{
             fontSize: '12pt',
-            color: p.midTone,
+            color: p.steel,
             fontStyle: 'italic',
             marginTop: '4px',
             letterSpacing: '0.5px',
@@ -252,6 +253,9 @@ const ResumePreview = forwardRef<HTMLDivElement, Props>(({ sections, theme, cust
           </div>
         )}
       </div>
+
+      {/* ── ACCENT STRIPE ── */}
+      <div style={{ height: '4px', background: `linear-gradient(90deg, ${p.accent}, ${p.midTone})` }} />
 
       {/* ── SINGLE COLUMN BODY ── */}
       <div style={{
