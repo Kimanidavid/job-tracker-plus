@@ -5,3 +5,9 @@ verify_jwt = false
 
 [functions.career-agent]
 verify_jwt = false
+
+[functions.elevenlabs-tts]
+verify_jwt = false
+
+[functions.elevenlabs-transcribe]
+verify_jwt = false
