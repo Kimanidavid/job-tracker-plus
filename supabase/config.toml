@@ -2,3 +2,6 @@ project_id = "zbdyivueanjurrbypxgg"
 
 [functions.resume-ai]
 verify_jwt = false
+
+[functions.career-agent]
+verify_jwt = false
