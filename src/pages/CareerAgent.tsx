@@ -1,14 +1,16 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Bot, Send, User, Loader2, Sparkles, MessageSquare, Briefcase, DollarSign, Linkedin, FileText } from 'lucide-react';
+import { Bot, Send, User, Loader2, Sparkles, MessageSquare, Briefcase, DollarSign, Linkedin, FileText, Mic, MicOff, Volume2, VolumeX, Square } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import { useToast } from '@/hooks/use-toast';
 
 type Msg = { role: 'user' | 'assistant'; content: string };
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/career-agent`;
+const TTS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`;
+const STT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-transcribe`;
 
 const QUICK_PROMPTS = [
   { label: 'Interview Prep', icon: MessageSquare, prompt: 'Help me prepare for a technical interview. What are the most common questions and how should I structure my answers using the STAR method?' },
@@ -79,7 +81,6 @@ async function streamChat({
     }
   }
 
-  // Flush remaining
   if (buffer.trim()) {
     for (let raw of buffer.split('\n')) {
       if (!raw) continue;
@@ -98,12 +99,34 @@ async function streamChat({
   onDone();
 }
 
+// Strip markdown for TTS
+function stripMarkdown(md: string): string {
+  return md
+    .replace(/#{1,6}\s+/g, '')
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/\*(.+?)\*/g, '$1')
+    .replace(/`{1,3}[^`]*`{1,3}/g, '')
+    .replace(/\[(.+?)\]\(.+?\)/g, '$1')
+    .replace(/^[-*]\s+/gm, '')
+    .replace(/^\d+\.\s+/gm, '')
+    .replace(/\n{2,}/g, '. ')
+    .replace(/\n/g, ' ')
+    .trim();
+}
+
 export default function CareerAgent() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -111,7 +134,57 @@ export default function CareerAgent() {
     }
   }, [messages]);
 
-  const send = async (text: string) => {
+  const playTTS = useCallback(async (text: string) => {
+    if (!voiceEnabled) return;
+    const plainText = stripMarkdown(text);
+    if (!plainText || plainText.length < 3) return;
+
+    // Truncate to avoid huge TTS calls
+    const truncated = plainText.length > 2000 ? plainText.slice(0, 2000) + '...' : plainText;
+
+    try {
+      setIsSpeaking(true);
+      const response = await fetch(TTS_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ text: truncated }),
+      });
+
+      if (!response.ok) throw new Error('TTS failed');
+
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      currentAudioRef.current = audio;
+      audio.onended = () => {
+        setIsSpeaking(false);
+        currentAudioRef.current = null;
+        URL.revokeObjectURL(audioUrl);
+      };
+      audio.onerror = () => {
+        setIsSpeaking(false);
+        currentAudioRef.current = null;
+      };
+      await audio.play();
+    } catch (err) {
+      console.error('TTS error:', err);
+      setIsSpeaking(false);
+    }
+  }, [voiceEnabled]);
+
+  const stopSpeaking = useCallback(() => {
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current = null;
+      setIsSpeaking(false);
+    }
+  }, []);
+
+  const send = useCallback(async (text: string) => {
     if (!text.trim() || isLoading) return;
     const userMsg: Msg = { role: 'user', content: text.trim() };
     const newMessages = [...messages, userMsg];
@@ -136,7 +209,13 @@ export default function CareerAgent() {
       await streamChat({
         messages: newMessages,
         onDelta: upsertAssistant,
-        onDone: () => setIsLoading(false),
+        onDone: () => {
+          setIsLoading(false);
+          // Auto-play TTS when voice is enabled
+          if (assistantSoFar) {
+            playTTS(assistantSoFar);
+          }
+        },
         onError: (err) => {
           setMessages(prev => [...prev, { role: 'assistant', content: `⚠️ ${err}` }]);
           setIsLoading(false);
@@ -146,7 +225,71 @@ export default function CareerAgent() {
       setMessages(prev => [...prev, { role: 'assistant', content: '⚠️ Failed to connect. Please try again.' }]);
       setIsLoading(false);
     }
-  };
+  }, [messages, isLoading, playTTS]);
+
+  const startRecording = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop());
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+
+        if (audioBlob.size < 100) {
+          setIsRecording(false);
+          return;
+        }
+
+        try {
+          const formData = new FormData();
+          formData.append('audio', audioBlob, 'recording.webm');
+
+          const response = await fetch(STT_URL, {
+            method: 'POST',
+            headers: {
+              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            },
+            body: formData,
+          });
+
+          if (!response.ok) throw new Error('Transcription failed');
+
+          const result = await response.json();
+          const transcript = result.text?.trim();
+
+          if (transcript) {
+            send(transcript);
+          } else {
+            toast({ title: 'No speech detected', description: 'Please try speaking again.', variant: 'destructive' });
+          }
+        } catch (err) {
+          console.error('STT error:', err);
+          toast({ title: 'Transcription failed', description: 'Could not process your voice input.', variant: 'destructive' });
+        }
+        setIsRecording(false);
+      };
+
+      mediaRecorderRef.current = mediaRecorder;
+      mediaRecorder.start();
+      setIsRecording(true);
+    } catch (err) {
+      console.error('Mic error:', err);
+      toast({ title: 'Microphone access required', description: 'Please allow microphone access to use voice input.', variant: 'destructive' });
+    }
+  }, [send, toast]);
+
+  const stopRecording = useCallback(() => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.stop();
+    }
+  }, []);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -160,16 +303,28 @@ export default function CareerAgent() {
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)] max-w-4xl mx-auto p-4">
       {/* Header */}
-      <div className="mb-4">
+      <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-xl bg-primary/10">
             <Bot className="w-6 h-6 text-primary" />
           </div>
           <div>
             <h1 className="text-xl font-bold text-foreground">AI Career Agent</h1>
-            <p className="text-sm text-muted-foreground">Your AI-powered career assistant for interviews, negotiations & more</p>
+            <p className="text-sm text-muted-foreground">Your AI-powered career assistant</p>
           </div>
         </div>
+        <Button
+          variant={voiceEnabled ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => {
+            setVoiceEnabled(!voiceEnabled);
+            if (voiceEnabled) stopSpeaking();
+          }}
+          className="gap-2"
+        >
+          {voiceEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+          {voiceEnabled ? 'Voice On' : 'Voice Off'}
+        </Button>
       </div>
 
       {/* Chat area */}
@@ -181,8 +336,11 @@ export default function CareerAgent() {
                 <Sparkles className="w-8 h-8 text-primary" />
               </div>
               <h3 className="text-lg font-semibold text-foreground mb-2">How can I help your career today?</h3>
-              <p className="text-sm text-muted-foreground mb-6 max-w-md">
+              <p className="text-sm text-muted-foreground mb-2 max-w-md">
                 I can help with interview prep, salary negotiation, LinkedIn optimization, cover letters, and career strategy.
+              </p>
+              <p className="text-xs text-muted-foreground mb-6 max-w-md flex items-center gap-1 justify-center">
+                <Mic className="w-3 h-3" /> Tap the microphone to speak, or enable Voice to hear responses read aloud.
               </p>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-w-lg">
                 {QUICK_PROMPTS.map((qp) => (
@@ -241,18 +399,43 @@ export default function CareerAgent() {
           )}
         </div>
 
+        {/* Speaking indicator */}
+        {isSpeaking && (
+          <div className="border-t border-border px-3 py-2 flex items-center justify-between bg-primary/5">
+            <div className="flex items-center gap-2 text-xs text-primary">
+              <Volume2 className="w-3.5 h-3.5 animate-pulse" />
+              <span>Speaking...</span>
+            </div>
+            <Button variant="ghost" size="sm" onClick={stopSpeaking} className="h-6 px-2 text-xs">
+              <Square className="w-3 h-3 mr-1" /> Stop
+            </Button>
+          </div>
+        )}
+
         {/* Input */}
         <div className="border-t border-border p-3">
           <div className="flex gap-2 items-end">
+            {/* Voice input button */}
+            <Button
+              variant={isRecording ? 'destructive' : 'outline'}
+              size="icon"
+              onClick={isRecording ? stopRecording : startRecording}
+              disabled={isLoading}
+              className={`shrink-0 ${isRecording ? 'animate-pulse' : ''}`}
+              title={isRecording ? 'Stop recording' : 'Start voice input'}
+            >
+              {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+            </Button>
+
             <Textarea
               ref={textareaRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ask about interviews, salary, LinkedIn, cover letters..."
+              placeholder={isRecording ? 'Listening... tap mic to stop' : 'Ask about interviews, salary, LinkedIn, cover letters...'}
               className="min-h-[44px] max-h-[120px] resize-none text-sm"
               rows={1}
-              disabled={isLoading}
+              disabled={isLoading || isRecording}
             />
             <Button
               size="icon"
