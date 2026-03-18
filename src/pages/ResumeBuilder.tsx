@@ -812,23 +812,27 @@ Apply the requested changes and return the complete updated CV.`;
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex flex-wrap gap-2 mb-3">
+                  <div className="space-y-1.5 mb-3">
                     {resumeTemplates.map(t => {
                       const isActive = selectedTemplate?.id === t.id;
                       return (
                         <button
                           key={t.id}
-                          title={t.name}
                           onClick={() => {
                             setSelectedTemplate(t);
                             setSelectedTheme(templateToTheme(t));
                             setCustomColor('');
                           }}
-                          className={`w-7 h-7 rounded-full border-2 transition-all hover:scale-110 ${
-                            isActive ? 'border-foreground ring-2 ring-primary/40 scale-110' : 'border-transparent'
+                          className={`w-full flex items-center gap-2 p-2 rounded-md border text-left transition-all text-xs ${
+                            isActive ? 'border-primary bg-primary/10 font-semibold' : 'border-border hover:border-primary/40'
                           }`}
-                          style={{ background: `linear-gradient(135deg, ${t.palette.navy}, ${t.palette.accent})` }}
-                        />
+                        >
+                          <div
+                            className="w-5 h-5 rounded-full shrink-0"
+                            style={{ background: `linear-gradient(135deg, ${t.palette.navy}, ${t.palette.accent})` }}
+                          />
+                          {t.name}
+                        </button>
                       );
                     })}
                   </div>
