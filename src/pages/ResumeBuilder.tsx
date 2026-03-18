@@ -528,6 +528,32 @@ Apply the requested changes and return the complete updated CV.`;
 
                 <div className="relative flex items-center gap-3">
                   <div className="flex-1 border-t" />
+                  <span className="text-xs text-muted-foreground">or load a sample CV</span>
+                  <div className="flex-1 border-t" />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {sampleResumes.map((sample) => (
+                    <button
+                      key={sample.id}
+                      onClick={() => {
+                        setResumeContent(sample.content);
+                        setResumeTitle(sample.title);
+                        toast({ title: 'Sample loaded', description: sample.title });
+                      }}
+                      className="flex items-start gap-3 p-3 rounded-lg border border-border hover:border-primary/40 hover:bg-accent/30 transition-colors text-left"
+                    >
+                      <UserCircle className="w-8 h-8 text-primary shrink-0 mt-0.5" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{sample.title}</p>
+                        <p className="text-xs text-muted-foreground line-clamp-2">{sample.description}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="relative flex items-center gap-3">
+                  <div className="flex-1 border-t" />
                   <span className="text-xs text-muted-foreground">or paste manually</span>
                   <div className="flex-1 border-t" />
                 </div>
