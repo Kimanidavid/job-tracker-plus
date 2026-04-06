@@ -877,7 +877,6 @@ Apply the requested changes and return the complete updated CV.`;
                         sections={sections.length ? sections : parsedSections}
                         theme={selectedTheme}
                         customColor={customColor || undefined}
-                        />
                       />
                     ) : (
                       <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
