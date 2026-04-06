@@ -179,7 +179,7 @@ interface Props {
   sections: ResumeSection[];
   theme: ResumeTheme;
   customColor?: string;
-  template?: ResumeTemplate | null;
+  palette?: CVPalette | null;
 }
 
 const ResumePreview = forwardRef<HTMLDivElement, Props>(({ sections, theme, customColor, template }, ref) => {
