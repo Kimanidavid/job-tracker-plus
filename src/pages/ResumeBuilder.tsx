@@ -19,9 +19,8 @@ import {
   Sparkles, Save, Trash2, Copy, ArrowRight, Loader2,
   AlertTriangle, Star, TrendingUp, BookOpen, FileUp,
   Download, Eye, Palette, GripVertical, LayoutTemplate,
-  Send, MessageSquare, UserCircle
+  Send, MessageSquare
 } from 'lucide-react';
-import { sampleResumes } from '@/data/sampleResumes';
 
 // Convert AI-structured format result into ResumeSection[]
 function convertAIFormatToSections(formatted: {
