@@ -13,7 +13,6 @@ import { useToast } from '@/hooks/use-toast';
 import { useResumes, callResumeAI } from '@/hooks/useResumes';
 import ResumePreview, { defaultThemes, parseResumeToSections, type ResumeSection, type ResumeTheme } from '@/components/ResumePreview';
 import { exportToDocx, exportToPdf } from '@/utils/exportResume';
-import { exportToDocx, exportToPdf } from '@/utils/exportResume';
 import {
   FileText, Upload, Wand2, Target, CheckCircle2,
   Sparkles, Save, Trash2, Copy, ArrowRight, Loader2,
