@@ -2,8 +2,7 @@ import {
   Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
   AlignmentType, BorderStyle, LevelFormat, WidthType, ShadingType,
 } from 'docx';
-import type { ResumeSection, ResumeTheme } from '@/components/ResumePreview';
-import type { ResumeTemplate, CVPalette } from '@/data/resumeTemplates';
+import type { ResumeSection, ResumeTheme, CVPalette } from '@/components/ResumePreview';
 
 function hex(color: string) { return color.replace('#', ''); }
 function clean(text: string) { return text.replace(/\*\*/g, '').replace(/\*/g, ''); }
