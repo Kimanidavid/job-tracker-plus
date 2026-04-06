@@ -1,5 +1,15 @@
 import { forwardRef } from 'react';
-import type { ResumeTemplate, CVPalette } from '@/data/resumeTemplates';
+
+export interface CVPalette {
+  navy: string;
+  midTone: string;
+  accent: string;
+  light: string;
+  offWhite: string;
+  darkText: string;
+  white: string;
+  steel: string;
+}
 
 export interface ResumeSection {
   id: string;
