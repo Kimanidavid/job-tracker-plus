@@ -2,7 +2,8 @@ import {
   Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
   AlignmentType, BorderStyle, LevelFormat, WidthType, ShadingType,
 } from 'docx';
-import type { ResumeSection, ResumeTheme, CVPalette } from '@/components/ResumePreview';
+import type { ResumeSection, ResumeTheme } from '@/components/ResumePreview';
+import type { ResumeTemplate, CVPalette } from '@/data/resumeTemplates';
 
 function hex(color: string) { return color.replace('#', ''); }
 function clean(text: string) { return text.replace(/\*\*/g, '').replace(/\*/g, ''); }
@@ -54,9 +55,9 @@ export async function exportToDocx(
   sections: ResumeSection[],
   theme: ResumeTheme,
   fileName = 'resume.docx',
-  palette?: CVPalette | null,
+  template?: ResumeTemplate | null,
 ) {
-  const p: CVPalette = palette ?? {
+  const p: CVPalette = template?.palette ?? {
     navy: '#1a365d', midTone: '#2b6cb0', accent: '#3182ce',
     light: '#dbeafe', offWhite: '#f8fafc', darkText: '#1e293b',
     white: '#FFFFFF', steel: '#94a3b8',

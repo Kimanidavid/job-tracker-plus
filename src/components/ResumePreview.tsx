@@ -1,15 +1,5 @@
 import { forwardRef } from 'react';
-
-export interface CVPalette {
-  navy: string;
-  midTone: string;
-  accent: string;
-  light: string;
-  offWhite: string;
-  darkText: string;
-  white: string;
-  steel: string;
-}
+import type { ResumeTemplate, CVPalette } from '@/data/resumeTemplates';
 
 export interface ResumeSection {
   id: string;
@@ -179,13 +169,13 @@ interface Props {
   sections: ResumeSection[];
   theme: ResumeTheme;
   customColor?: string;
-  palette?: CVPalette | null;
+  template?: ResumeTemplate | null;
 }
 
-const ResumePreview = forwardRef<HTMLDivElement, Props>(({ sections, theme, customColor, palette }, ref) => {
+const ResumePreview = forwardRef<HTMLDivElement, Props>(({ sections, theme, customColor, template }, ref) => {
   const visibleSections = sections.filter(s => s.visible);
 
-  const p: CVPalette = palette ?? {
+  const p: CVPalette = template?.palette ?? {
     navy: '#0A1F44',
     midTone: '#1A4A8A',
     accent: customColor || theme.primaryColor || '#2E7DD1',
