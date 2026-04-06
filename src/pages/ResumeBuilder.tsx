@@ -12,17 +12,14 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { useResumes, callResumeAI } from '@/hooks/useResumes';
 import ResumePreview, { defaultThemes, parseResumeToSections, type ResumeSection, type ResumeTheme } from '@/components/ResumePreview';
-import TemplateCatalogue from '@/components/TemplateCatalogue';
-import { resumeTemplates, templateToTheme, type ResumeTemplate } from '@/data/resumeTemplates';
 import { exportToDocx, exportToPdf } from '@/utils/exportResume';
 import {
   FileText, Upload, Wand2, Target, CheckCircle2,
   Sparkles, Save, Trash2, Copy, ArrowRight, Loader2,
   AlertTriangle, Star, TrendingUp, BookOpen, FileUp,
   Download, Eye, Palette, GripVertical, LayoutTemplate,
-  Send, MessageSquare, UserCircle
+  Send, MessageSquare
 } from 'lucide-react';
-import { sampleResumes } from '@/data/sampleResumes';
 
 // Convert AI-structured format result into ResumeSection[]
 function convertAIFormatToSections(formatted: {
@@ -102,7 +99,6 @@ export default function ResumeBuilder() {
 
   // Preview / customization state
   const [selectedTheme, setSelectedTheme] = useState<ResumeTheme>(defaultThemes[1]);
-  const [selectedTemplate, setSelectedTemplate] = useState<ResumeTemplate | null>(resumeTemplates[0]);
   const [customColor, setCustomColor] = useState('');
   const [sections, setSections] = useState<ResumeSection[]>([]);
   const [exportLoading, setExportLoading] = useState(false);
@@ -143,8 +139,7 @@ export default function ResumeBuilder() {
   const handleExportDocx = async () => {
     setExportLoading(true);
     try {
-      const theme = selectedTemplate ? templateToTheme(selectedTemplate) : selectedTheme;
-      await exportToDocx(sections.length ? sections : parsedSections, theme, `${resumeTitle || 'resume'}.docx`, selectedTemplate);
+      await exportToDocx(sections.length ? sections : parsedSections, selectedTheme, `${resumeTitle || 'resume'}.docx`);
       toast({ title: 'DOCX downloaded!' });
     } catch (err: any) {
       toast({ title: 'Export failed', description: err.message, variant: 'destructive' });
@@ -526,31 +521,6 @@ Apply the requested changes and return the complete updated CV.`;
                   )}
                 </div>
 
-                <div className="relative flex items-center gap-3">
-                  <div className="flex-1 border-t" />
-                  <span className="text-xs text-muted-foreground">or load a sample CV</span>
-                  <div className="flex-1 border-t" />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {sampleResumes.map((sample) => (
-                    <button
-                      key={sample.id}
-                      onClick={() => {
-                        setResumeContent(sample.content);
-                        setResumeTitle(sample.title);
-                        toast({ title: 'Sample loaded', description: sample.title });
-                      }}
-                      className="flex items-start gap-3 p-3 rounded-lg border border-border hover:border-primary/40 hover:bg-accent/30 transition-colors text-left"
-                    >
-                      <UserCircle className="w-8 h-8 text-primary shrink-0 mt-0.5" />
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{sample.title}</p>
-                        <p className="text-xs text-muted-foreground line-clamp-2">{sample.description}</p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
 
                 <div className="relative flex items-center gap-3">
                   <div className="flex-1 border-t" />
@@ -812,15 +782,28 @@ Apply the requested changes and return the complete updated CV.`;
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-1.5 mb-3">
-                    {resumeTemplates.map(t => {
-                      const isActive = selectedTemplate?.id === t.id;
+                  <div className="flex gap-2 items-center">
+                    <input
+                      type="color"
+                      value={customColor || selectedTheme.primaryColor}
+                      onChange={(e) => setCustomColor(e.target.value)}
+                      className="w-6 h-6 rounded cursor-pointer border-0"
+                    />
+                    <span className="text-[10px] text-muted-foreground">Custom accent color</span>
+                    {customColor && (
+                      <Button variant="ghost" size="sm" onClick={() => setCustomColor('')} className="text-[10px] h-5 px-1">
+                        Reset
+                      </Button>
+                    )}
+                  </div>
+                  <div className="space-y-1.5 mt-3">
+                    {defaultThemes.map(t => {
+                      const isActive = selectedTheme.id === t.id && !customColor;
                       return (
                         <button
                           key={t.id}
                           onClick={() => {
-                            setSelectedTemplate(t);
-                            setSelectedTheme(templateToTheme(t));
+                            setSelectedTheme(t);
                             setCustomColor('');
                           }}
                           className={`w-full flex items-center gap-2 p-2 rounded-md border text-left transition-all text-xs ${
@@ -829,29 +812,13 @@ Apply the requested changes and return the complete updated CV.`;
                         >
                           <div
                             className="w-5 h-5 rounded-full shrink-0"
-                            style={{ background: `linear-gradient(135deg, ${t.palette.navy}, ${t.palette.accent})` }}
+                            style={{ background: t.primaryColor }}
                           />
                           {t.name}
                         </button>
                       );
                     })}
                   </div>
-                  {selectedTemplate && (
-                    <div className="flex gap-2 items-center">
-                      <input
-                        type="color"
-                        value={customColor || selectedTemplate.palette.accent}
-                        onChange={(e) => setCustomColor(e.target.value)}
-                        className="w-6 h-6 rounded cursor-pointer border-0"
-                      />
-                      <span className="text-[10px] text-muted-foreground">{selectedTemplate.name}</span>
-                      {customColor && (
-                        <Button variant="ghost" size="sm" onClick={() => setCustomColor('')} className="text-[10px] h-5 px-1">
-                          Reset
-                        </Button>
-                      )}
-                    </div>
-                  )}
                 </CardContent>
               </Card>
 
@@ -910,7 +877,6 @@ Apply the requested changes and return the complete updated CV.`;
                         sections={sections.length ? sections : parsedSections}
                         theme={selectedTheme}
                         customColor={customColor || undefined}
-                        template={selectedTemplate}
                       />
                     ) : (
                       <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
