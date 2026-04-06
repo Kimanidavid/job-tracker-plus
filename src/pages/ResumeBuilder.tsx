@@ -822,6 +822,7 @@ Apply the requested changes and return the complete updated CV.`;
                 </CardContent>
               </Card>
 
+              <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm">Sections</CardTitle>
                 </CardHeader>
