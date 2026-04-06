@@ -782,15 +782,28 @@ Apply the requested changes and return the complete updated CV.`;
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-1.5 mb-3">
-                    {resumeTemplates.map(t => {
-                      const isActive = selectedTemplate?.id === t.id;
+                  <div className="flex gap-2 items-center">
+                    <input
+                      type="color"
+                      value={customColor || selectedTheme.primaryColor}
+                      onChange={(e) => setCustomColor(e.target.value)}
+                      className="w-6 h-6 rounded cursor-pointer border-0"
+                    />
+                    <span className="text-[10px] text-muted-foreground">Custom accent color</span>
+                    {customColor && (
+                      <Button variant="ghost" size="sm" onClick={() => setCustomColor('')} className="text-[10px] h-5 px-1">
+                        Reset
+                      </Button>
+                    )}
+                  </div>
+                  <div className="space-y-1.5 mt-3">
+                    {defaultThemes.map(t => {
+                      const isActive = selectedTheme.id === t.id && !customColor;
                       return (
                         <button
                           key={t.id}
                           onClick={() => {
-                            setSelectedTemplate(t);
-                            setSelectedTheme(templateToTheme(t));
+                            setSelectedTheme(t);
                             setCustomColor('');
                           }}
                           className={`w-full flex items-center gap-2 p-2 rounded-md border text-left transition-all text-xs ${
@@ -799,31 +812,13 @@ Apply the requested changes and return the complete updated CV.`;
                         >
                           <div
                             className="w-5 h-5 rounded-full shrink-0"
-                            style={{ background: `linear-gradient(135deg, ${t.palette.navy}, ${t.palette.accent})` }}
+                            style={{ background: t.primaryColor }}
                           />
                           {t.name}
                         </button>
                       );
                     })}
                   </div>
-                  {selectedTemplate && (
-                    <div className="flex gap-2 items-center">
-                      <input
-                        type="color"
-                        value={customColor || selectedTemplate.palette.accent}
-                        onChange={(e) => setCustomColor(e.target.value)}
-                        className="w-6 h-6 rounded cursor-pointer border-0"
-                      />
-                      <span className="text-[10px] text-muted-foreground">{selectedTemplate.name}</span>
-                      {customColor && (
-                        <Button variant="ghost" size="sm" onClick={() => setCustomColor('')} className="text-[10px] h-5 px-1">
-                          Reset
-                        </Button>
-                      )}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
 
               <Card>
                 <CardHeader className="pb-2">
