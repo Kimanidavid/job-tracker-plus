@@ -140,8 +140,7 @@ export default function ResumeBuilder() {
   const handleExportDocx = async () => {
     setExportLoading(true);
     try {
-      const theme = selectedTemplate ? templateToTheme(selectedTemplate) : selectedTheme;
-      await exportToDocx(sections.length ? sections : parsedSections, theme, `${resumeTitle || 'resume'}.docx`, selectedTemplate);
+      await exportToDocx(sections.length ? sections : parsedSections, selectedTheme, `${resumeTitle || 'resume'}.docx`);
       toast({ title: 'DOCX downloaded!' });
     } catch (err: any) {
       toast({ title: 'Export failed', description: err.message, variant: 'destructive' });
