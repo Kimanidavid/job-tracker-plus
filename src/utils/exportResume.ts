@@ -54,9 +54,9 @@ export async function exportToDocx(
   sections: ResumeSection[],
   theme: ResumeTheme,
   fileName = 'resume.docx',
-  template?: ResumeTemplate | null,
+  palette?: CVPalette | null,
 ) {
-  const p: CVPalette = template?.palette ?? {
+  const p: CVPalette = palette ?? {
     navy: '#1a365d', midTone: '#2b6cb0', accent: '#3182ce',
     light: '#dbeafe', offWhite: '#f8fafc', darkText: '#1e293b',
     white: '#FFFFFF', steel: '#94a3b8',

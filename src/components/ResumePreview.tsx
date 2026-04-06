@@ -182,10 +182,10 @@ interface Props {
   palette?: CVPalette | null;
 }
 
-const ResumePreview = forwardRef<HTMLDivElement, Props>(({ sections, theme, customColor, template }, ref) => {
+const ResumePreview = forwardRef<HTMLDivElement, Props>(({ sections, theme, customColor, palette }, ref) => {
   const visibleSections = sections.filter(s => s.visible);
 
-  const p: CVPalette = template?.palette ?? {
+  const p: CVPalette = palette ?? {
     navy: '#0A1F44',
     midTone: '#1A4A8A',
     accent: customColor || theme.primaryColor || '#2E7DD1',
