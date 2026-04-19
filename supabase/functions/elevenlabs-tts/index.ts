@@ -12,32 +12,55 @@ serve(async (req) => {
     const ELEVENLABS_API_KEY = Deno.env.get("ELEVENLABS_USER_API_KEY") ?? Deno.env.get("ELEVENLABS_API_KEY");
     if (!ELEVENLABS_API_KEY) throw new Error("ELEVENLABS_USER_API_KEY is not configured");
 
-    const { text, voiceId = "DODLEQrClDo8wCz460ld" } = await req.json();
+    const FALLBACK_VOICE_ID = "JBFqnCBsd6RMkjVDRZzb";
+    const { text, voiceId = FALLBACK_VOICE_ID } = await req.json();
     if (!text) throw new Error("Text is required");
 
-    const response = await fetch(
-      `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream?output_format=mp3_44100_128`,
-      {
-        method: "POST",
-        headers: {
-          "xi-api-key": ELEVENLABS_API_KEY,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          text,
-          model_id: "eleven_turbo_v2_5",
-          voice_settings: {
-            stability: 0.5,
-            similarity_boost: 0.75,
-            speed: 1.0,
+    const synthesize = async (targetVoiceId: string) => {
+      const response = await fetch(
+        `https://api.elevenlabs.io/v1/text-to-speech/${targetVoiceId}/stream?output_format=mp3_44100_128`,
+        {
+          method: "POST",
+          headers: {
+            "xi-api-key": ELEVENLABS_API_KEY,
+            "Content-Type": "application/json",
           },
-        }),
-      }
-    );
+          body: JSON.stringify({
+            text,
+            model_id: "eleven_turbo_v2_5",
+            voice_settings: {
+              stability: 0.5,
+              similarity_boost: 0.75,
+              speed: 1.0,
+            },
+          }),
+        }
+      );
+
+      return response;
+    };
+
+    let response = await synthesize(voiceId);
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error("ElevenLabs TTS error:", response.status, errText);
+      const shouldFallback =
+        voiceId !== FALLBACK_VOICE_ID &&
+        (response.status === 401 || response.status === 402) &&
+        /paid_plan_required|library voices/i.test(errText);
+
+      if (shouldFallback) {
+        console.warn("ElevenLabs voice unavailable for current plan, falling back to default voice", { voiceId });
+        response = await synthesize(FALLBACK_VOICE_ID);
+      } else {
+        console.error("ElevenLabs TTS error:", response.status, errText);
+        throw new Error(`TTS failed: ${response.status}`);
+      }
+    }
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error("ElevenLabs fallback TTS error:", response.status, errText);
       throw new Error(`TTS failed: ${response.status}`);
     }
 
