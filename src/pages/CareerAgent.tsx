@@ -121,6 +121,7 @@ export default function CareerAgent() {
   const [isRecording, setIsRecording] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [ttsMode, setTtsMode] = useState<'elevenlabs' | 'browser'>('elevenlabs');
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -134,13 +135,35 @@ export default function CareerAgent() {
     }
   }, [messages]);
 
+  const speakWithBrowser = useCallback((text: string) => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return false;
+
+    window.speechSynthesis.cancel();
+    currentAudioRef.current = null;
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1;
+    utterance.pitch = 1;
+    utterance.volume = 1;
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+
+    setIsSpeaking(true);
+    window.speechSynthesis.speak(utterance);
+    return true;
+  }, []);
+
   const playTTS = useCallback(async (text: string) => {
     if (!voiceEnabled) return;
     const plainText = stripMarkdown(text);
     if (!plainText || plainText.length < 3) return;
 
-    // Truncate to avoid huge TTS calls
     const truncated = plainText.length > 2000 ? plainText.slice(0, 2000) + '...' : plainText;
+
+    if (ttsMode === 'browser') {
+      speakWithBrowser(truncated);
+      return;
+    }
 
     try {
       setIsSpeaking(true);
@@ -154,7 +177,7 @@ export default function CareerAgent() {
         body: JSON.stringify({ text: truncated }),
       });
 
-      if (!response.ok) throw new Error('TTS failed');
+      if (!response.ok) throw new Error(`TTS failed: ${response.status}`);
 
       const audioBlob = await response.blob();
       const audioUrl = URL.createObjectURL(audioBlob);
@@ -166,22 +189,30 @@ export default function CareerAgent() {
         URL.revokeObjectURL(audioUrl);
       };
       audio.onerror = () => {
-        setIsSpeaking(false);
         currentAudioRef.current = null;
+        URL.revokeObjectURL(audioUrl);
+        setTtsMode('browser');
+        if (!speakWithBrowser(truncated)) setIsSpeaking(false);
       };
       await audio.play();
     } catch (err) {
       console.error('TTS error:', err);
-      setIsSpeaking(false);
+      setTtsMode('browser');
+      if (!speakWithBrowser(truncated)) {
+        setIsSpeaking(false);
+      }
     }
-  }, [voiceEnabled]);
+  }, [voiceEnabled, ttsMode, speakWithBrowser]);
 
   const stopSpeaking = useCallback(() => {
     if (currentAudioRef.current) {
       currentAudioRef.current.pause();
       currentAudioRef.current = null;
-      setIsSpeaking(false);
     }
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    setIsSpeaking(false);
   }, []);
 
   const send = useCallback(async (text: string) => {
