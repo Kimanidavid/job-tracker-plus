@@ -5,6 +5,11 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// Lauren - custom voice from elevenlabs.io/app/voice-library
+const DEFAULT_VOICE_ID = "DODLEQrClDo8wCz460ld";
+const DEFAULT_MODEL_ID = "eleven_v3";
+const FALLBACK_MODEL_ID = "eleven_turbo_v2_5";
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -12,15 +17,12 @@ serve(async (req) => {
     const ELEVENLABS_API_KEY = Deno.env.get("ELEVENLABS_USER_API_KEY") ?? Deno.env.get("ELEVENLABS_API_KEY");
     if (!ELEVENLABS_API_KEY) throw new Error("ELEVENLABS_USER_API_KEY is not configured");
 
-    // User's custom ElevenLabs voice (provided by user)
-    const USER_VOICE_ID = "DODLEQrClDo8wCz460ld";
-    const FALLBACK_VOICE_ID = "JBFqnCBsd6RMkjVDRZzb";
-    const { text, voiceId = USER_VOICE_ID } = await req.json();
+    const { text, voiceId = DEFAULT_VOICE_ID, modelId = DEFAULT_MODEL_ID } = await req.json();
     if (!text) throw new Error("Text is required");
 
-    const synthesize = async (targetVoiceId: string) => {
-      const response = await fetch(
-        `https://api.elevenlabs.io/v1/text-to-speech/${targetVoiceId}/stream?output_format=mp3_44100_128`,
+    const synthesize = async (targetModelId: string) => {
+      return await fetch(
+        `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream?output_format=mp3_44100_128`,
         {
           method: "POST",
           headers: {
@@ -29,40 +31,31 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             text,
-            model_id: "eleven_turbo_v2_5",
+            model_id: targetModelId,
             voice_settings: {
               stability: 0.5,
               similarity_boost: 0.75,
+              style: 0.5,
+              use_speaker_boost: true,
               speed: 1.0,
             },
           }),
         }
       );
-
-      return response;
     };
 
-    let response = await synthesize(voiceId);
+    let response = await synthesize(modelId);
 
-    if (!response.ok) {
+    // If eleven_v3 isn't available on the account/plan, fall back to turbo v2.5 with the same voice
+    if (!response.ok && modelId === DEFAULT_MODEL_ID) {
       const errText = await response.text();
-      const shouldFallback =
-        voiceId !== FALLBACK_VOICE_ID &&
-        (response.status === 401 || response.status === 402) &&
-        /paid_plan_required|library voices/i.test(errText);
-
-      if (shouldFallback) {
-        console.warn("ElevenLabs voice unavailable for current plan, falling back to default voice", { voiceId });
-        response = await synthesize(FALLBACK_VOICE_ID);
-      } else {
-        console.error("ElevenLabs TTS error:", response.status, errText);
-        throw new Error(`TTS failed: ${response.status}`);
-      }
+      console.warn("Primary model failed, falling back", { status: response.status, errText });
+      response = await synthesize(FALLBACK_MODEL_ID);
     }
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error("ElevenLabs fallback TTS error:", response.status, errText);
+      console.error("ElevenLabs TTS error:", response.status, errText);
       throw new Error(`TTS failed: ${response.status}`);
     }
 
