@@ -32,7 +32,10 @@ serve(async (req) => {
     if (!response.ok) {
       const errText = await response.text();
       console.error("ElevenLabs STT error:", response.status, errText);
-      throw new Error(`STT failed: ${response.status}`);
+      return new Response(JSON.stringify({ error: `STT failed: ${response.status}`, providerError: errText }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const transcription = await response.json();
