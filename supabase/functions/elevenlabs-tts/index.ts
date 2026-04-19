@@ -12,8 +12,10 @@ serve(async (req) => {
     const ELEVENLABS_API_KEY = Deno.env.get("ELEVENLABS_USER_API_KEY") ?? Deno.env.get("ELEVENLABS_API_KEY");
     if (!ELEVENLABS_API_KEY) throw new Error("ELEVENLABS_USER_API_KEY is not configured");
 
+    // User's custom ElevenLabs voice (provided by user)
+    const USER_VOICE_ID = "DODLEQrClDo8wCz460ld";
     const FALLBACK_VOICE_ID = "JBFqnCBsd6RMkjVDRZzb";
-    const { text, voiceId = FALLBACK_VOICE_ID } = await req.json();
+    const { text, voiceId = USER_VOICE_ID } = await req.json();
     if (!text) throw new Error("Text is required");
 
     const synthesize = async (targetVoiceId: string) => {
