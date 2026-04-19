@@ -174,7 +174,7 @@ export default function CareerAgent() {
           apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({ text: truncated }),
+        body: JSON.stringify({ text: truncated, voiceId: "DODLEQrClDo8wCz460ld" }),
       });
 
       if (!response.ok) throw new Error(`TTS failed: ${response.status}`);
