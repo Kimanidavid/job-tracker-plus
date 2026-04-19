@@ -9,8 +9,8 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const ELEVENLABS_API_KEY = Deno.env.get("ELEVENLABS_API_KEY");
-    if (!ELEVENLABS_API_KEY) throw new Error("ELEVENLABS_API_KEY is not configured");
+    const ELEVENLABS_API_KEY = Deno.env.get("ELEVENLABS_USER_API_KEY") ?? Deno.env.get("ELEVENLABS_API_KEY");
+    if (!ELEVENLABS_API_KEY) throw new Error("ELEVENLABS_USER_API_KEY is not configured");
 
     const { text, voiceId = "DODLEQrClDo8wCz460ld" } = await req.json();
     if (!text) throw new Error("Text is required");
