@@ -13,7 +13,7 @@ serve(async (req) => {
     if (!ELEVENLABS_API_KEY) throw new Error("ELEVENLABS_USER_API_KEY is not configured");
 
     const FALLBACK_VOICE_ID = "JBFqnCBsd6RMkjVDRZzb";
-    const { text, voiceId = "DODLEQrClDo8wCz460ld" } = await req.json();
+    const { text, voiceId = FALLBACK_VOICE_ID } = await req.json();
     if (!text) throw new Error("Text is required");
 
     const synthesize = async (targetVoiceId: string) => {
