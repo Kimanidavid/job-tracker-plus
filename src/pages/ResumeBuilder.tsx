@@ -152,9 +152,20 @@ export default function ResumeBuilder() {
   const [chatLoading, setChatLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
+  // Section editing & change-review
+  const [pendingEdit, setPendingEdit] = useState<{ previousSections: ResumeSection[]; changedSectionIds: string[] } | null>(null);
+  const [sectionEditingId, setSectionEditingId] = useState<string | null>(null);
+  const [sectionEditDraft, setSectionEditDraft] = useState('');
+  const [sectionAiInstruction, setSectionAiInstruction] = useState('');
+  const [sectionAiLoadingId, setSectionAiLoadingId] = useState<string | null>(null);
+  const [sectionsPanelOpen, setSectionsPanelOpen] = useState(true);
+
   const activeContent = tailoredContent || resumeContent;
   const parsedSections = useMemo(() => parseResumeToSections(activeContent), [activeContent]);
-  const liveSections = sections.length ? sections : parsedSections;
+  const liveSections = useMemo(
+    () => orderSections(sections.length ? sections : parsedSections),
+    [sections, parsedSections],
+  );
 
   // ── Derived: filtered resumes for landing ──
   const filteredBase = useMemo(() => {
