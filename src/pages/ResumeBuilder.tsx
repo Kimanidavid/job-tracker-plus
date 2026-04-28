@@ -1395,7 +1395,7 @@ Return the complete updated CV.`;
                   <div className="flex-1 bg-primary/5 rounded-lg p-3 text-xs">
                     <p className="font-semibold mb-1">JobSuit AI · {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                     <p className="text-muted-foreground leading-relaxed">
-                      Hi there! I can help you improve your resume. Ask me for feedback, or improvements for specific sections — I can directly edit your resume.
+                      Hi! Ask me for advice or feedback on your CV. If you want me to change something, tell me to <strong>add</strong>, <strong>edit</strong>, <strong>remove</strong>, or <strong>improve</strong> it — I'll only modify the resume when you ask.
                     </p>
                   </div>
                 </div>
