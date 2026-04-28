@@ -1292,7 +1292,7 @@ Apply the requested changes and return the complete updated CV.`;
                 </Button>
               </div>
               <p className="text-[10px] text-muted-foreground text-center">
-                Messages are processed by AI. Verify important information. Chat tokens left: {chatTokens}
+                Messages are processed by AI. Verify important information.
               </p>
             </div>
           </div>
