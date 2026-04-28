@@ -574,7 +574,7 @@ Apply the requested changes and return the complete updated CV.`;
               <p className="text-sm text-muted-foreground">
                 A main resume targeted to a specific role/title and seniority. We suggest you create one or two of these at most, one for each role you are targeting.
               </p>
-              <Button variant="outline" className="rounded-full bg-primary/5 border-primary/20 text-primary hover:bg-primary/10" onClick={openEditorBlank}>
+              <Button variant="outline" className="rounded-full bg-primary/5 border-primary/20 text-primary hover:bg-primary/10" onClick={openCreateDialog}>
                 <Plus className="w-4 h-4 mr-1.5" />
                 Create New
               </Button>
