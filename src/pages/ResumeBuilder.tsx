@@ -1167,31 +1167,7 @@ Apply the requested changes and return the complete updated CV.`;
               </CardContent>
             </Card>
 
-            {/* Templates / Layout & Style panels — appear when toggled */}
-            {showTemplates && (
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <LayoutTemplate className="w-4 h-4 text-primary" /> Templates
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-1.5">
-                  {resumeTemplates.map(t => {
-                    const active = selectedTemplate?.id === t.id;
-                    return (
-                      <button
-                        key={t.id}
-                        onClick={() => { setSelectedTemplate(t); setSelectedTheme(templateToTheme(t)); setCustomColor(''); }}
-                        className={`w-full flex items-center gap-2 p-2 rounded-md border text-left text-xs ${active ? 'border-primary bg-primary/10 font-semibold' : 'border-border hover:border-primary/40'}`}
-                      >
-                        <div className="w-5 h-5 rounded-full shrink-0" style={{ background: `linear-gradient(135deg, ${t.palette.navy}, ${t.palette.accent})` }} />
-                        {t.name}
-                      </button>
-                    );
-                  })}
-                </CardContent>
-              </Card>
-            )}
+            {/* Layout & Style panel — appears when toggled */}
 
             {showLayoutStyle && (
               <Card>
