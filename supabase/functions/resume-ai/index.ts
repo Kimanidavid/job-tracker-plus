@@ -72,6 +72,16 @@ Return ONLY the improved resume text, no explanations.`;
         userPrompt = `Resume:\n\n${resume}\n\nEdit instruction: ${editInstruction}\n\nApply this edit and return the full updated resume.`;
         break;
 
+      case "edit_section":
+        systemPrompt = `You are an expert resume writer. You will be given a single section from a resume and an edit instruction. Apply the instruction to ONLY this section. Return ONLY the new section content (no title, no explanations, no markdown fences). Preserve bullet points using "- " prefix where appropriate.`;
+        userPrompt = `Section content:\n\n${resume}\n\nEdit instruction: ${editInstruction}\n\nReturn the updated section content only.`;
+        break;
+
+      case "chat":
+        systemPrompt = `You are a helpful, concise resume coach. The user wants ADVICE, FEEDBACK, or to ASK A QUESTION about their CV — they are NOT asking you to rewrite it. Reply conversationally in 1–4 short paragraphs. Do NOT output a rewritten resume. Do NOT include the resume text in your reply.`;
+        userPrompt = `Here is the user's current resume for context:\n\n${resume}\n\nUser's message:\n${editInstruction}`;
+        break;
+
       default:
         return new Response(JSON.stringify({ error: "Invalid action" }), {
           status: 400,
