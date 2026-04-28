@@ -170,10 +170,12 @@ interface Props {
   theme: ResumeTheme;
   customColor?: string;
   template?: ResumeTemplate | null;
+  highlightedSectionIds?: string[];
 }
 
-const ResumePreview = forwardRef<HTMLDivElement, Props>(({ sections, theme, customColor, template }, ref) => {
+const ResumePreview = forwardRef<HTMLDivElement, Props>(({ sections, theme, customColor, template, highlightedSectionIds }, ref) => {
   const visibleSections = sections.filter(s => s.visible);
+  const highlightSet = new Set(highlightedSectionIds || []);
 
   const p: CVPalette = template?.palette ?? {
     navy: '#0A1F44',
