@@ -170,10 +170,12 @@ interface Props {
   theme: ResumeTheme;
   customColor?: string;
   template?: ResumeTemplate | null;
+  highlightedSectionIds?: string[];
 }
 
-const ResumePreview = forwardRef<HTMLDivElement, Props>(({ sections, theme, customColor, template }, ref) => {
+const ResumePreview = forwardRef<HTMLDivElement, Props>(({ sections, theme, customColor, template, highlightedSectionIds }, ref) => {
   const visibleSections = sections.filter(s => s.visible);
+  const highlightSet = new Set(highlightedSectionIds || []);
 
   const p: CVPalette = template?.palette ?? {
     navy: '#0A1F44',
@@ -262,24 +264,59 @@ const ResumePreview = forwardRef<HTMLDivElement, Props>(({ sections, theme, cust
         padding: '24px 44px 40px',
         background: p.white,
       }}>
-        {bodySections.map(section => (
-          <div key={section.id} style={{ marginBottom: '18px' }}>
-            {/* Section heading */}
-            <div style={{
-              fontSize: '12pt',
-              fontWeight: 700,
-              textTransform: 'uppercase',
-              color: p.navy,
-              letterSpacing: '1.5px',
-              paddingBottom: '5px',
-              marginBottom: '10px',
-              borderBottom: `3px solid ${p.accent}`,
-            }}>
-              {cleanContent(section.title)}
+        {bodySections.map(section => {
+          const isHighlighted = highlightSet.has(section.id);
+          return (
+            <div
+              key={section.id}
+              style={{
+                marginBottom: '18px',
+                position: 'relative',
+                ...(isHighlighted ? {
+                  background: 'rgba(254, 240, 138, 0.4)',
+                  borderLeft: '3px solid #f59e0b',
+                  paddingLeft: '10px',
+                  paddingTop: '6px',
+                  paddingRight: '8px',
+                  paddingBottom: '6px',
+                  borderRadius: '4px',
+                } : {}),
+              }}
+            >
+              {isHighlighted && (
+                <span style={{
+                  position: 'absolute',
+                  top: '6px',
+                  right: '8px',
+                  fontSize: '8pt',
+                  fontWeight: 700,
+                  color: '#92400e',
+                  background: '#fde68a',
+                  padding: '2px 8px',
+                  borderRadius: '999px',
+                  letterSpacing: '0.5px',
+                  textTransform: 'uppercase',
+                }}>
+                  AI edited
+                </span>
+              )}
+              {/* Section heading */}
+              <div style={{
+                fontSize: '12pt',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                color: p.navy,
+                letterSpacing: '1.5px',
+                paddingBottom: '5px',
+                marginBottom: '10px',
+                borderBottom: `3px solid ${p.accent}`,
+              }}>
+                {cleanContent(section.title)}
+              </div>
+              <ContentLines content={section.content} palette={p} />
             </div>
-            <ContentLines content={section.content} palette={p} />
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

@@ -24,8 +24,9 @@ import {
   Download, Eye, Palette, GripVertical, LayoutTemplate,
   Send, MessageSquare, ChevronDown, Plus, Search, Pencil,
   PanelRightClose, PanelRightOpen, ZoomIn, ZoomOut,
-  User, Briefcase, X, Mic, Undo2, Redo2,
+  User, Briefcase, X, Mic, Undo2, Redo2, Check, RotateCcw,
 } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 // ── AI structured format → ResumeSection[] ──
 function convertAIFormatToSections(formatted: {
@@ -55,7 +56,32 @@ function convertAIFormatToSections(formatted: {
     else if (/experience|work|employment/.test(t)) type = 'experience';
     sections.push({ id: crypto.randomUUID(), type, title: s.title, content: s.content, visible: true });
   }
-  return sections;
+  return orderSections(sections);
+}
+
+/** Enforce CV section order: header → summary → experience → education → skills → custom */
+export function orderSections(sections: ResumeSection[]): ResumeSection[] {
+  const rank: Record<ResumeSection['type'], number> = {
+    header: 0, summary: 1, experience: 2, education: 3, skills: 4, custom: 5,
+  };
+  return [...sections].sort((a, b) => {
+    const ra = rank[a.type] ?? 5;
+    const rb = rank[b.type] ?? 5;
+    if (ra !== rb) return ra - rb;
+    return 0;
+  });
+}
+
+/** Diff two section arrays, return ids whose content changed (or are new). */
+function diffChangedIds(prev: ResumeSection[], next: ResumeSection[]): string[] {
+  const prevById = new Map(prev.map(s => [s.id, s]));
+  const prevByTitle = new Map(prev.map(s => [s.title.toLowerCase().trim(), s]));
+  const changed: string[] = [];
+  for (const s of next) {
+    const p = prevById.get(s.id) || prevByTitle.get(s.title.toLowerCase().trim());
+    if (!p || p.content.trim() !== s.content.trim()) changed.push(s.id);
+  }
+  return changed;
 }
 
 type ViewMode = 'landing' | 'editor';
@@ -126,9 +152,20 @@ export default function ResumeBuilder() {
   const [chatLoading, setChatLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
+  // Section editing & change-review
+  const [pendingEdit, setPendingEdit] = useState<{ previousSections: ResumeSection[]; changedSectionIds: string[] } | null>(null);
+  const [sectionEditingId, setSectionEditingId] = useState<string | null>(null);
+  const [sectionEditDraft, setSectionEditDraft] = useState('');
+  const [sectionAiInstruction, setSectionAiInstruction] = useState('');
+  const [sectionAiLoadingId, setSectionAiLoadingId] = useState<string | null>(null);
+  const [sectionsPanelOpen, setSectionsPanelOpen] = useState(true);
+
   const activeContent = tailoredContent || resumeContent;
   const parsedSections = useMemo(() => parseResumeToSections(activeContent), [activeContent]);
-  const liveSections = sections.length ? sections : parsedSections;
+  const liveSections = useMemo(
+    () => orderSections(sections.length ? sections : parsedSections),
+    [sections, parsedSections],
+  );
 
   // ── Derived: filtered resumes for landing ──
   const filteredBase = useMemo(() => {
@@ -393,14 +430,18 @@ export default function ResumeBuilder() {
 
   // ── Save / AI actions ──
   const handleSaveBase = () => {
-    if (!resumeContent.trim()) {
+    const flat = liveSections.length
+      ? liveSections.map(s => (s.type === 'header' ? s.content : `${s.title}\n${s.content}`)).join('\n\n')
+      : resumeContent;
+    if (!flat.trim()) {
       toast({ title: 'Resume content is empty', variant: 'destructive' });
       return;
     }
+    setResumeContent(flat);
     saveResume.mutate({
       id: selectedResumeId || undefined,
       title: resumeTitle || 'My Resume',
-      content: resumeContent,
+      content: flat,
       is_base: true,
     });
   };
@@ -459,6 +500,9 @@ export default function ResumeBuilder() {
     toast({ title: 'Copied to clipboard' });
   };
 
+  // ── Intent classification: distinguish edit requests from conversation ──
+  const EDIT_INTENT_RE = /\b(add|adds|adding|remove|removes|removing|delete|deletes|deleting|change|changes|changing|update|updates|updating|rewrite|rewrites|rephrase|rephrases|fix|fixes|fixing|improve|improves|improving|tailor|tailors|tailoring|replace|replaces|replacing|insert|inserts|inserting|shorten|shortens|expand|expands|move|moves|reorder|reorders|reword|rewords|optimi[sz]e|optimi[sz]es|highlight|highlights|bold|put|edit|edits|editing|append|appends|create|creates|make (?:it|this|the|my) (?:sound|stronger|shorter|longer|better|more)|turn (?:this|it) into|convert)\b/i;
+
   // ── AI chat ──
   const handleChatSend = async (customMsg?: string) => {
     const msg = (customMsg || chatInput).trim();
@@ -476,32 +520,45 @@ export default function ResumeBuilder() {
         s.type === 'header' ? s.content : `${s.title}\n${s.content}`
       ).join('\n\n');
 
+      const isEditIntent = EDIT_INTENT_RE.test(msg);
+
+      if (!isEditIntent) {
+        // Conversation / advice — do NOT modify the CV
+        const reply = await callResumeAI('chat', { resume: resumeText, editInstruction: msg });
+        setChatMessages(prev => [...prev, { role: 'assistant', content: reply || 'Sorry, no response.' }]);
+        return;
+      }
+
+      // Edit intent
       const enhancedInstruction = `You have full control to edit this CV. The user's request: "${msg}"
 
 Guidelines:
-- Make precise, targeted edits based on the request
-- Preserve all other content that wasn't asked to be changed
-- Keep formatting consistent (use bullet points with -)
-- For adding sections, create them with appropriate titles
-- For removing content, remove it completely
-- For rewording, improve clarity while keeping meaning
+- Make ONLY the changes the user explicitly asked for
+- Preserve everything else exactly as-is
+- Keep formatting consistent (use "- " for bullets)
+- For new sections, give them appropriate titles
 
-Apply the requested changes and return the complete updated CV.`;
+Return the complete updated CV.`;
 
       const result = await callResumeAI('edit', { resume: resumeText, editInstruction: enhancedInstruction });
       if (result) {
+        const previousSections = liveSections;
+        let nextSections: ResumeSection[];
         try {
           const formatted = await callResumeAI('format', { resume: result });
-          if (formatted && formatted.person_name) {
-            setSections(convertAIFormatToSections(formatted));
-          } else {
-            setSections(parseResumeToSections(result));
-          }
-          setChatMessages(prev => [...prev, { role: 'assistant', content: '✓ Done! CV updated.' }]);
+          nextSections = (formatted && formatted.person_name)
+            ? convertAIFormatToSections(formatted)
+            : orderSections(parseResumeToSections(result));
         } catch {
-          setSections(parseResumeToSections(result));
-          setChatMessages(prev => [...prev, { role: 'assistant', content: '✓ Changes applied!' }]);
+          nextSections = orderSections(parseResumeToSections(result));
         }
+        setSections(nextSections);
+        const changedIds = diffChangedIds(previousSections, nextSections);
+        setPendingEdit({ previousSections, changedSectionIds: changedIds });
+        setChatMessages(prev => [...prev, {
+          role: 'assistant',
+          content: `✓ Updated ${changedIds.length} section${changedIds.length === 1 ? '' : 's'}. Review the highlighted area${changedIds.length === 1 ? '' : 's'} and Keep or Discard the changes.`,
+        }]);
       }
     } catch (err: any) {
       setChatMessages(prev => [...prev, { role: 'assistant', content: `⚠️ Error: ${err.message}` }]);
@@ -509,6 +566,72 @@ Apply the requested changes and return the complete updated CV.`;
       setChatLoading(false);
       setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
     }
+  };
+
+  // ── Section-level editing ──
+  const startManualEdit = (section: ResumeSection) => {
+    setSectionEditingId(section.id);
+    setSectionEditDraft(section.content);
+  };
+
+  const saveManualEdit = () => {
+    if (!sectionEditingId) return;
+    const previousSections = liveSections;
+    const next = liveSections.map(s =>
+      s.id === sectionEditingId ? { ...s, content: sectionEditDraft } : s,
+    );
+    setSections(next);
+    setSectionEditingId(null);
+    setSectionEditDraft('');
+    // Manual edits aren't AI changes — no review banner.
+    void previousSections;
+  };
+
+  const runSectionAiEdit = async (section: ResumeSection, instruction: string) => {
+    if (!instruction.trim()) return;
+    setSectionAiLoadingId(section.id);
+    try {
+      const newContent = await callResumeAI('edit_section', {
+        resume: section.content,
+        editInstruction: instruction,
+      });
+      if (typeof newContent === 'string' && newContent.trim()) {
+        const previousSections = liveSections;
+        const next = liveSections.map(s =>
+          s.id === section.id ? { ...s, content: newContent.trim() } : s,
+        );
+        setSections(next);
+        setPendingEdit({ previousSections, changedSectionIds: [section.id] });
+        setSectionAiInstruction('');
+        toast({ title: 'Section updated', description: 'Review highlighted change in the preview.' });
+      }
+    } catch (err: any) {
+      toast({ title: 'AI edit failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setSectionAiLoadingId(null);
+    }
+  };
+
+  const keepPendingChanges = () => {
+    setPendingEdit(null);
+    if (selectedResumeId || resumeContent.trim()) {
+      // Persist as base resume content from current sections
+      const flat = liveSections.map(s =>
+        s.type === 'header' ? s.content : `${s.title}\n${s.content}`,
+      ).join('\n\n');
+      setResumeContent(flat);
+      saveResume.mutate({
+        id: selectedResumeId || undefined,
+        title: resumeTitle || 'My Resume',
+        content: flat,
+        is_base: true,
+      });
+    }
+  };
+
+  const discardPendingChanges = () => {
+    if (pendingEdit) setSections(pendingEdit.previousSections);
+    setPendingEdit(null);
   };
 
   const suggestedActions = [
@@ -933,6 +1056,16 @@ Apply the requested changes and return the complete updated CV.`;
           <Button variant="ghost" size="icon" className="h-8 w-8" disabled>
             <Redo2 className="w-3.5 h-3.5" />
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs"
+            onClick={handleSaveBase}
+            disabled={saveResume.isPending || liveSections.length === 0}
+          >
+            <Save className="w-3.5 h-3.5 mr-1" />
+            {selectedResumeId ? 'Update' : 'Save'}
+          </Button>
           <Button size="sm" className="h-8 text-xs bg-foreground text-background hover:bg-foreground/90" onClick={handleExportPdf} disabled={exportLoading}>
             {exportLoading ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Download className="w-3.5 h-3.5 mr-1" />}
             Download PDF
@@ -1115,57 +1248,94 @@ Apply the requested changes and return the complete updated CV.`;
               </Card>
             </Collapsible>
 
-            {/* Upload / paste */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <FileUp className="w-4 h-4 text-primary" /> Resume Source
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div
-                  className="border-2 border-dashed rounded-md p-4 text-center cursor-pointer hover:border-primary/50 hover:bg-accent/30 transition-colors"
-                  onClick={() => fileInputRef.current?.click()}
-                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                  onDrop={async (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const file = e.dataTransfer.files?.[0];
-                    if (file) await handleFileUpload({ target: { files: [file] } } as any);
-                  }}
-                >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".pdf,.docx,.doc,.txt,.md"
-                    className="hidden"
-                    onChange={handleFileUpload}
-                  />
-                  {uploadLoading ? (
-                    <div className="flex flex-col items-center gap-1.5">
-                      <Loader2 className="w-5 h-5 animate-spin text-primary" />
-                      <p className="text-xs">Parsing CV...</p>
+            {/* Section-by-section editor */}
+            <Collapsible open={sectionsPanelOpen} onOpenChange={setSectionsPanelOpen}>
+              <Card>
+                <CollapsibleTrigger asChild>
+                  <CardHeader className="pb-2 cursor-pointer">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <LayoutTemplate className="w-4 h-4 text-primary" /> Sections
+                      </CardTitle>
+                      <ChevronDown className={`w-4 h-4 transition-transform ${sectionsPanelOpen ? '' : '-rotate-90'}`} />
                     </div>
-                  ) : (
-                    <div className="flex flex-col items-center gap-1.5">
-                      <FileUp className="w-5 h-5 text-muted-foreground" />
-                      <p className="text-xs font-medium">Drop CV or click to upload</p>
-                      <p className="text-[10px] text-muted-foreground">PDF, DOCX, TXT (max 10MB)</p>
-                    </div>
-                  )}
-                </div>
-                <Textarea
-                  placeholder="Or paste resume content..."
-                  value={resumeContent}
-                  onChange={(e) => setResumeContent(e.target.value)}
-                  className="min-h-[100px] text-xs font-mono"
-                />
-                <Button size="sm" className="w-full h-8 text-xs" onClick={handleSaveBase} disabled={saveResume.isPending || !resumeContent.trim()}>
-                  <Save className="w-3.5 h-3.5 mr-1.5" />
-                  {selectedResumeId ? 'Update Base Resume' : 'Save as Base Resume'}
-                </Button>
-              </CardContent>
-            </Card>
+                  </CardHeader>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <CardContent className="space-y-2">
+                    {liveSections.length === 0 ? (
+                      <p className="text-[11px] text-muted-foreground text-center py-3">
+                        Upload a CV from the landing page to start editing sections.
+                      </p>
+                    ) : (
+                      liveSections.map(section => {
+                        const isEditingThis = sectionEditingId === section.id;
+                        const isAiLoading = sectionAiLoadingId === section.id;
+                        return (
+                          <div key={section.id} className="rounded-md border bg-background p-2 space-y-1.5">
+                            <div className="flex items-center gap-1.5">
+                              <span className="flex-1 text-xs font-semibold truncate">{section.title}</span>
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7" title="Edit with AI" disabled={isAiLoading}>
+                                    {isAiLoading
+                                      ? <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                                      : <Wand2 className="w-3.5 h-3.5 text-primary" />}
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-72 p-3" align="end">
+                                  <p className="text-[11px] font-semibold mb-1.5">Edit "{section.title}" with AI</p>
+                                  <Textarea
+                                    placeholder="e.g. Make bullets stronger and add metrics"
+                                    value={sectionAiInstruction}
+                                    onChange={(e) => setSectionAiInstruction(e.target.value)}
+                                    className="text-xs min-h-[70px]"
+                                  />
+                                  <div className="flex justify-end gap-1.5 mt-2">
+                                    <Button
+                                      size="sm"
+                                      className="h-7 text-xs"
+                                      onClick={() => runSectionAiEdit(section, sectionAiInstruction)}
+                                      disabled={!sectionAiInstruction.trim() || isAiLoading}
+                                    >
+                                      <Sparkles className="w-3 h-3 mr-1" /> Apply
+                                    </Button>
+                                  </div>
+                                </PopoverContent>
+                              </Popover>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                title="Edit manually"
+                                onClick={() => isEditingThis ? saveManualEdit() : startManualEdit(section)}
+                              >
+                                {isEditingThis
+                                  ? <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                  : <Pencil className="w-3.5 h-3.5" />}
+                              </Button>
+                              <Switch
+                                checked={section.visible}
+                                onCheckedChange={() => toggleSectionVisibility(section.id)}
+                              />
+                            </div>
+                            {isEditingThis && (
+                              <Textarea
+                                value={sectionEditDraft}
+                                onChange={(e) => setSectionEditDraft(e.target.value)}
+                                onBlur={saveManualEdit}
+                                className="text-xs font-mono min-h-[120px]"
+                                autoFocus
+                              />
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </CardContent>
+                </CollapsibleContent>
+              </Card>
+            </Collapsible>
 
             {/* Layout & Style panel — appears when toggled */}
 
@@ -1225,7 +1395,7 @@ Apply the requested changes and return the complete updated CV.`;
                   <div className="flex-1 bg-primary/5 rounded-lg p-3 text-xs">
                     <p className="font-semibold mb-1">JobSuit AI · {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                     <p className="text-muted-foreground leading-relaxed">
-                      Hi there! I can help you improve your resume. Ask me for feedback, or improvements for specific sections — I can directly edit your resume.
+                      Hi! Ask me for advice or feedback on your CV. If you want me to change something, tell me to <strong>add</strong>, <strong>edit</strong>, <strong>remove</strong>, or <strong>improve</strong> it — I'll only modify the resume when you ask.
                     </p>
                   </div>
                 </div>
@@ -1311,16 +1481,39 @@ Apply the requested changes and return the complete updated CV.`;
             </Button>
           </div>
 
+          {/* Review bar — shown after AI edits */}
+          {pendingEdit && (
+            <div className="flex items-center justify-between gap-3 px-4 py-2 bg-amber-50 border-b border-amber-200">
+              <div className="flex items-center gap-2 text-xs text-amber-900">
+                <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                <span>
+                  AI edited <strong>{pendingEdit.changedSectionIds.length}</strong> section
+                  {pendingEdit.changedSectionIds.length === 1 ? '' : 's'}. Review the highlighted area
+                  {pendingEdit.changedSectionIds.length === 1 ? '' : 's'} below.
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={discardPendingChanges}>
+                  <RotateCcw className="w-3 h-3 mr-1" /> Discard
+                </Button>
+                <Button size="sm" className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700" onClick={keepPendingChanges}>
+                  <Check className="w-3 h-3 mr-1" /> Keep changes
+                </Button>
+              </div>
+            </div>
+          )}
+
           <ScrollArea className="flex-1">
             <div className="p-6 flex justify-center">
               {liveSections.length > 0 ? (
-                <div style={{ transform: `scale(${previewZoom / 100})`, transformOrigin: 'top center' }}>
+                <div className="mx-auto" style={{ transform: `scale(${previewZoom / 100})`, transformOrigin: 'top center' }}>
                   <ResumePreview
                     ref={previewRef}
                     sections={liveSections}
                     theme={selectedTheme}
                     customColor={customColor || undefined}
                     template={selectedTemplate}
+                    highlightedSectionIds={pendingEdit?.changedSectionIds}
                   />
                 </div>
               ) : (
