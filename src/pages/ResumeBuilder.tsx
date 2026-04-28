@@ -1248,57 +1248,94 @@ Return the complete updated CV.`;
               </Card>
             </Collapsible>
 
-            {/* Upload / paste */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <FileUp className="w-4 h-4 text-primary" /> Resume Source
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div
-                  className="border-2 border-dashed rounded-md p-4 text-center cursor-pointer hover:border-primary/50 hover:bg-accent/30 transition-colors"
-                  onClick={() => fileInputRef.current?.click()}
-                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                  onDrop={async (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const file = e.dataTransfer.files?.[0];
-                    if (file) await handleFileUpload({ target: { files: [file] } } as any);
-                  }}
-                >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".pdf,.docx,.doc,.txt,.md"
-                    className="hidden"
-                    onChange={handleFileUpload}
-                  />
-                  {uploadLoading ? (
-                    <div className="flex flex-col items-center gap-1.5">
-                      <Loader2 className="w-5 h-5 animate-spin text-primary" />
-                      <p className="text-xs">Parsing CV...</p>
+            {/* Section-by-section editor */}
+            <Collapsible open={sectionsPanelOpen} onOpenChange={setSectionsPanelOpen}>
+              <Card>
+                <CollapsibleTrigger asChild>
+                  <CardHeader className="pb-2 cursor-pointer">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <LayoutTemplate className="w-4 h-4 text-primary" /> Sections
+                      </CardTitle>
+                      <ChevronDown className={`w-4 h-4 transition-transform ${sectionsPanelOpen ? '' : '-rotate-90'}`} />
                     </div>
-                  ) : (
-                    <div className="flex flex-col items-center gap-1.5">
-                      <FileUp className="w-5 h-5 text-muted-foreground" />
-                      <p className="text-xs font-medium">Drop CV or click to upload</p>
-                      <p className="text-[10px] text-muted-foreground">PDF, DOCX, TXT (max 10MB)</p>
-                    </div>
-                  )}
-                </div>
-                <Textarea
-                  placeholder="Or paste resume content..."
-                  value={resumeContent}
-                  onChange={(e) => setResumeContent(e.target.value)}
-                  className="min-h-[100px] text-xs font-mono"
-                />
-                <Button size="sm" className="w-full h-8 text-xs" onClick={handleSaveBase} disabled={saveResume.isPending || !resumeContent.trim()}>
-                  <Save className="w-3.5 h-3.5 mr-1.5" />
-                  {selectedResumeId ? 'Update Base Resume' : 'Save as Base Resume'}
-                </Button>
-              </CardContent>
-            </Card>
+                  </CardHeader>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <CardContent className="space-y-2">
+                    {liveSections.length === 0 ? (
+                      <p className="text-[11px] text-muted-foreground text-center py-3">
+                        Upload a CV from the landing page to start editing sections.
+                      </p>
+                    ) : (
+                      liveSections.map(section => {
+                        const isEditingThis = sectionEditingId === section.id;
+                        const isAiLoading = sectionAiLoadingId === section.id;
+                        return (
+                          <div key={section.id} className="rounded-md border bg-background p-2 space-y-1.5">
+                            <div className="flex items-center gap-1.5">
+                              <span className="flex-1 text-xs font-semibold truncate">{section.title}</span>
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7" title="Edit with AI" disabled={isAiLoading}>
+                                    {isAiLoading
+                                      ? <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                                      : <Wand2 className="w-3.5 h-3.5 text-primary" />}
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-72 p-3" align="end">
+                                  <p className="text-[11px] font-semibold mb-1.5">Edit "{section.title}" with AI</p>
+                                  <Textarea
+                                    placeholder="e.g. Make bullets stronger and add metrics"
+                                    value={sectionAiInstruction}
+                                    onChange={(e) => setSectionAiInstruction(e.target.value)}
+                                    className="text-xs min-h-[70px]"
+                                  />
+                                  <div className="flex justify-end gap-1.5 mt-2">
+                                    <Button
+                                      size="sm"
+                                      className="h-7 text-xs"
+                                      onClick={() => runSectionAiEdit(section, sectionAiInstruction)}
+                                      disabled={!sectionAiInstruction.trim() || isAiLoading}
+                                    >
+                                      <Sparkles className="w-3 h-3 mr-1" /> Apply
+                                    </Button>
+                                  </div>
+                                </PopoverContent>
+                              </Popover>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                title="Edit manually"
+                                onClick={() => isEditingThis ? saveManualEdit() : startManualEdit(section)}
+                              >
+                                {isEditingThis
+                                  ? <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                  : <Pencil className="w-3.5 h-3.5" />}
+                              </Button>
+                              <Switch
+                                checked={section.visible}
+                                onCheckedChange={() => toggleSectionVisibility(section.id)}
+                              />
+                            </div>
+                            {isEditingThis && (
+                              <Textarea
+                                value={sectionEditDraft}
+                                onChange={(e) => setSectionEditDraft(e.target.value)}
+                                onBlur={saveManualEdit}
+                                className="text-xs font-mono min-h-[120px]"
+                                autoFocus
+                              />
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </CardContent>
+                </CollapsibleContent>
+              </Card>
+            </Collapsible>
 
             {/* Layout & Style panel — appears when toggled */}
 
