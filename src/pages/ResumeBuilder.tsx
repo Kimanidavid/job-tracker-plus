@@ -24,7 +24,7 @@ import {
   Download, Eye, Palette, GripVertical, LayoutTemplate,
   Send, MessageSquare, ChevronDown, Plus, Search, Pencil,
   PanelRightClose, PanelRightOpen, ZoomIn, ZoomOut,
-  User, Briefcase, X, Bug, Mic, Undo2, Redo2,
+  User, Briefcase, X, Mic, Undo2, Redo2,
 } from 'lucide-react';
 
 // ── AI structured format → ResumeSection[] ──
@@ -92,12 +92,18 @@ export default function ResumeBuilder() {
 
   // ── Editor UI state ──
   const [showAssistant, setShowAssistant] = useState(true);
-  const [showTemplates, setShowTemplates] = useState(false);
   const [showLayoutStyle, setShowLayoutStyle] = useState(false);
   const [previewZoom, setPreviewZoom] = useState(80);
-  const [chatTokens] = useState(25);
   const [analysisOpen, setAnalysisOpen] = useState(true);
   const [personalInfoOpen, setPersonalInfoOpen] = useState(true);
+
+  // ── Create base resume dialog ──
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [createMode, setCreateMode] = useState<'upload' | 'scratch'>('upload');
+  const [newJobTitle, setNewJobTitle] = useState('');
+  const [newSetAsBase, setNewSetAsBase] = useState(true);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const createFileInputRef = useRef<HTMLInputElement>(null);
 
   // Personal info form (visual-only structured fields)
   const [piName, setPiName] = useState('');
@@ -155,6 +161,89 @@ export default function ResumeBuilder() {
     setEditorMode('base');
     setView('editor');
   };
+
+  const openCreateDialog = () => {
+    setCreateMode('upload');
+    setNewJobTitle('');
+    setNewSetAsBase(true);
+    setPendingFile(null);
+    setCreateDialogOpen(true);
+  };
+
+  const handleCreateContinue = async () => {
+    if (!newJobTitle.trim()) {
+      toast({ title: 'Add a job title', description: 'Used to name your CV.', variant: 'destructive' });
+      return;
+    }
+    if (createMode === 'upload' && !pendingFile) {
+      toast({ title: 'Pick a file to upload', variant: 'destructive' });
+      return;
+    }
+
+    // Reset editor state
+    setResumeTitle(newJobTitle.trim());
+    setSections([]);
+    setSelectedResumeId(null);
+    setTailoredContent('');
+    setJobDescription('');
+    setEditorMode('base');
+
+    if (createMode === 'scratch') {
+      setResumeContent('');
+      setCreateDialogOpen(false);
+      setView('editor');
+      return;
+    }
+
+    // Upload path
+    const file = pendingFile!;
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: 'File too large', description: 'Max 10MB', variant: 'destructive' });
+      return;
+    }
+
+    setCreateDialogOpen(false);
+    setView('editor');
+
+    try {
+      toast({ title: 'Parsing your CV...' });
+      const content = await parseUploadedFile(file);
+      if (!content) {
+        toast({ title: 'Could not extract text', description: 'The file appears empty or image-based.', variant: 'destructive' });
+        return;
+      }
+      setResumeContent(content);
+
+      toast({ title: 'Structuring CV with AI...' });
+      setAiLoading(true);
+      try {
+        const formatted = await callResumeAI('format', { resume: content });
+        if (formatted && formatted.person_name) {
+          setSections(convertAIFormatToSections(formatted));
+          setPiName(formatted.person_name || '');
+          setPiRole(formatted.tagline || '');
+          const contact = (formatted.contact_lines || []).join(' · ');
+          const emailMatch = contact.match(/[\w.+-]+@[\w-]+\.[\w.-]+/);
+          const phoneMatch = contact.match(/\+?\d[\d\s().-]{6,}/);
+          if (emailMatch) setPiEmail(emailMatch[0]);
+          if (phoneMatch) setPiPhone(phoneMatch[0]);
+          toast({ title: 'CV ready!' });
+        } else {
+          setSections(parseResumeToSections(content));
+        }
+      } catch {
+        setSections(parseResumeToSections(content));
+      } finally { setAiLoading(false); }
+
+      // Persist if user opted in
+      if (newSetAsBase) {
+        saveResume.mutate({ title: newJobTitle.trim(), content, is_base: true });
+      }
+    } catch (err: any) {
+      toast({ title: 'Upload failed', description: err.message, variant: 'destructive' });
+    }
+  };
+
 
   const openEditorWithBase = (r: Resume) => {
     setResumeTitle(r.title);
@@ -485,7 +574,7 @@ Apply the requested changes and return the complete updated CV.`;
               <p className="text-sm text-muted-foreground">
                 A main resume targeted to a specific role/title and seniority. We suggest you create one or two of these at most, one for each role you are targeting.
               </p>
-              <Button variant="outline" className="rounded-full bg-primary/5 border-primary/20 text-primary hover:bg-primary/10" onClick={openEditorBlank}>
+              <Button variant="outline" className="rounded-full bg-primary/5 border-primary/20 text-primary hover:bg-primary/10" onClick={openCreateDialog}>
                 <Plus className="w-4 h-4 mr-1.5" />
                 Create New
               </Button>
@@ -671,7 +760,118 @@ Apply the requested changes and return the complete updated CV.`;
             </Card>
           </div>
         )}
+
+        {/* Create Base Resume dialog */}
+        {createDialogOpen && (
+          <div
+            className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setCreateDialogOpen(false)}
+          >
+            <Card className="max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
+              <CardHeader>
+                <CardTitle className="text-lg">Create Base Resume</CardTitle>
+                <CardDescription>Upload an existing resume or start from scratch.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Mode tabs */}
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setCreateMode('upload')}
+                    className={`p-3 rounded-md border text-left transition-colors ${
+                      createMode === 'upload'
+                        ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
+                        : 'border-border hover:border-primary/40'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <FileUp className="w-4 h-4 text-primary" />
+                      <span className="text-sm font-semibold">Upload resume</span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">PDF, DOCX, or TXT</p>
+                  </button>
+                  <button
+                    onClick={() => setCreateMode('scratch')}
+                    className={`p-3 rounded-md border text-left transition-colors ${
+                      createMode === 'scratch'
+                        ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
+                        : 'border-border hover:border-primary/40'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <Plus className="w-4 h-4 text-primary" />
+                      <span className="text-sm font-semibold">Start from scratch</span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">Build it section by section</p>
+                  </button>
+                </div>
+
+                {/* Upload picker */}
+                {createMode === 'upload' && (
+                  <div>
+                    <input
+                      ref={createFileInputRef}
+                      type="file"
+                      accept=".pdf,.doc,.docx,.txt,.md"
+                      className="hidden"
+                      onChange={(e) => setPendingFile(e.target.files?.[0] || null)}
+                    />
+                    <button
+                      onClick={() => createFileInputRef.current?.click()}
+                      className="w-full p-4 rounded-md border-2 border-dashed border-border hover:border-primary/40 hover:bg-accent/30 transition-colors text-center"
+                    >
+                      <FileUp className="w-5 h-5 mx-auto mb-1.5 text-muted-foreground" />
+                      <p className="text-sm font-medium">
+                        {pendingFile ? pendingFile.name : 'Click to choose a file'}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        We'll parse and preview it automatically
+                      </p>
+                    </button>
+                  </div>
+                )}
+
+                {/* Job title */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="newJobTitle" className="text-xs">
+                    Job title / role <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="newJobTitle"
+                    placeholder="e.g. Senior Product Manager"
+                    value={newJobTitle}
+                    onChange={(e) => setNewJobTitle(e.target.value)}
+                  />
+                  <p className="text-[11px] text-muted-foreground">Used to name your CV.</p>
+                </div>
+
+                {/* Set as base toggle */}
+                <div className="flex items-center justify-between p-2.5 rounded-md border bg-muted/30">
+                  <div>
+                    <p className="text-sm font-medium">Set as base resume</p>
+                    <p className="text-[11px] text-muted-foreground">Save this as your reusable starting point.</p>
+                  </div>
+                  <Switch checked={newSetAsBase} onCheckedChange={setNewSetAsBase} />
+                </div>
+
+                {/* Footer */}
+                <div className="flex justify-end gap-2 pt-1">
+                  <Button variant="outline" size="sm" onClick={() => setCreateDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleCreateContinue}
+                    disabled={!newJobTitle.trim() || (createMode === 'upload' && !pendingFile)}
+                  >
+                    Continue
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
+
     );
   }
 
@@ -712,13 +912,6 @@ Apply the requested changes and return the complete updated CV.`;
           <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => setChatMessages([])}>
             <X className="w-3.5 h-3.5 mr-1" /> Clear
           </Button>
-          <Button variant="ghost" size="sm" className="h-8 text-xs">
-            <Bug className="w-3.5 h-3.5 mr-1" /> Report Bug
-          </Button>
-          <Badge variant="outline" className="h-7 rounded-full bg-emerald-50 text-emerald-700 border-emerald-200 text-xs">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5" />
-            Tokens left: {chatTokens}
-          </Badge>
           <Button variant="destructive" size="sm" className="h-8 text-xs ml-2" onClick={() => setShowAssistant(false)}>
             Close Chat
           </Button>
@@ -727,18 +920,10 @@ Apply the requested changes and return the complete updated CV.`;
         {/* Right segment */}
         <div className="flex items-center gap-2 justify-end">
           <Button
-            variant={showTemplates ? 'default' : 'outline'}
-            size="sm"
-            className="h-8 text-xs"
-            onClick={() => { setShowTemplates(v => !v); setShowLayoutStyle(false); }}
-          >
-            <LayoutTemplate className="w-3.5 h-3.5 mr-1" /> Templates
-          </Button>
-          <Button
             variant={showLayoutStyle ? 'default' : 'outline'}
             size="sm"
             className="h-8 text-xs"
-            onClick={() => { setShowLayoutStyle(v => !v); setShowTemplates(false); }}
+            onClick={() => setShowLayoutStyle(v => !v)}
           >
             <Palette className="w-3.5 h-3.5 mr-1" /> Layout & Style
           </Button>
@@ -982,31 +1167,7 @@ Apply the requested changes and return the complete updated CV.`;
               </CardContent>
             </Card>
 
-            {/* Templates / Layout & Style panels — appear when toggled */}
-            {showTemplates && (
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <LayoutTemplate className="w-4 h-4 text-primary" /> Templates
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-1.5">
-                  {resumeTemplates.map(t => {
-                    const active = selectedTemplate?.id === t.id;
-                    return (
-                      <button
-                        key={t.id}
-                        onClick={() => { setSelectedTemplate(t); setSelectedTheme(templateToTheme(t)); setCustomColor(''); }}
-                        className={`w-full flex items-center gap-2 p-2 rounded-md border text-left text-xs ${active ? 'border-primary bg-primary/10 font-semibold' : 'border-border hover:border-primary/40'}`}
-                      >
-                        <div className="w-5 h-5 rounded-full shrink-0" style={{ background: `linear-gradient(135deg, ${t.palette.navy}, ${t.palette.accent})` }} />
-                        {t.name}
-                      </button>
-                    );
-                  })}
-                </CardContent>
-              </Card>
-            )}
+            {/* Layout & Style panel — appears when toggled */}
 
             {showLayoutStyle && (
               <Card>
@@ -1131,7 +1292,7 @@ Apply the requested changes and return the complete updated CV.`;
                 </Button>
               </div>
               <p className="text-[10px] text-muted-foreground text-center">
-                Messages are processed by AI. Verify important information. Chat tokens left: {chatTokens}
+                Messages are processed by AI. Verify important information.
               </p>
             </div>
           </div>
