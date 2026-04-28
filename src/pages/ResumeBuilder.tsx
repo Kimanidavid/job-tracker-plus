@@ -1052,6 +1052,16 @@ Return the complete updated CV.`;
           <Button variant="ghost" size="icon" className="h-8 w-8" disabled>
             <Redo2 className="w-3.5 h-3.5" />
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs"
+            onClick={handleSaveBase}
+            disabled={saveResume.isPending || liveSections.length === 0}
+          >
+            <Save className="w-3.5 h-3.5 mr-1" />
+            {selectedResumeId ? 'Update' : 'Save'}
+          </Button>
           <Button size="sm" className="h-8 text-xs bg-foreground text-background hover:bg-foreground/90" onClick={handleExportPdf} disabled={exportLoading}>
             {exportLoading ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Download className="w-3.5 h-3.5 mr-1" />}
             Download PDF
