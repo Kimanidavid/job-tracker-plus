@@ -162,6 +162,89 @@ export default function ResumeBuilder() {
     setView('editor');
   };
 
+  const openCreateDialog = () => {
+    setCreateMode('upload');
+    setNewJobTitle('');
+    setNewSetAsBase(true);
+    setPendingFile(null);
+    setCreateDialogOpen(true);
+  };
+
+  const handleCreateContinue = async () => {
+    if (!newJobTitle.trim()) {
+      toast({ title: 'Add a job title', description: 'Used to name your CV.', variant: 'destructive' });
+      return;
+    }
+    if (createMode === 'upload' && !pendingFile) {
+      toast({ title: 'Pick a file to upload', variant: 'destructive' });
+      return;
+    }
+
+    // Reset editor state
+    setResumeTitle(newJobTitle.trim());
+    setSections([]);
+    setSelectedResumeId(null);
+    setTailoredContent('');
+    setJobDescription('');
+    setEditorMode('base');
+
+    if (createMode === 'scratch') {
+      setResumeContent('');
+      setCreateDialogOpen(false);
+      setView('editor');
+      return;
+    }
+
+    // Upload path
+    const file = pendingFile!;
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: 'File too large', description: 'Max 10MB', variant: 'destructive' });
+      return;
+    }
+
+    setCreateDialogOpen(false);
+    setView('editor');
+
+    try {
+      toast({ title: 'Parsing your CV...' });
+      const content = await parseUploadedFile(file);
+      if (!content) {
+        toast({ title: 'Could not extract text', description: 'The file appears empty or image-based.', variant: 'destructive' });
+        return;
+      }
+      setResumeContent(content);
+
+      toast({ title: 'Structuring CV with AI...' });
+      setAiLoading(true);
+      try {
+        const formatted = await callResumeAI('format', { resume: content });
+        if (formatted && formatted.person_name) {
+          setSections(convertAIFormatToSections(formatted));
+          setPiName(formatted.person_name || '');
+          setPiRole(formatted.tagline || '');
+          const contact = (formatted.contact_lines || []).join(' · ');
+          const emailMatch = contact.match(/[\w.+-]+@[\w-]+\.[\w.-]+/);
+          const phoneMatch = contact.match(/\+?\d[\d\s().-]{6,}/);
+          if (emailMatch) setPiEmail(emailMatch[0]);
+          if (phoneMatch) setPiPhone(phoneMatch[0]);
+          toast({ title: 'CV ready!' });
+        } else {
+          setSections(parseResumeToSections(content));
+        }
+      } catch {
+        setSections(parseResumeToSections(content));
+      } finally { setAiLoading(false); }
+
+      // Persist if user opted in
+      if (newSetAsBase) {
+        saveResume.mutate({ title: newJobTitle.trim(), content, is_base: true });
+      }
+    } catch (err: any) {
+      toast({ title: 'Upload failed', description: err.message, variant: 'destructive' });
+    }
+  };
+
+
   const openEditorWithBase = (r: Resume) => {
     setResumeTitle(r.title);
     setResumeContent(r.content);
