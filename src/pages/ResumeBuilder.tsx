@@ -1481,16 +1481,39 @@ Return the complete updated CV.`;
             </Button>
           </div>
 
+          {/* Review bar — shown after AI edits */}
+          {pendingEdit && (
+            <div className="flex items-center justify-between gap-3 px-4 py-2 bg-amber-50 border-b border-amber-200">
+              <div className="flex items-center gap-2 text-xs text-amber-900">
+                <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                <span>
+                  AI edited <strong>{pendingEdit.changedSectionIds.length}</strong> section
+                  {pendingEdit.changedSectionIds.length === 1 ? '' : 's'}. Review the highlighted area
+                  {pendingEdit.changedSectionIds.length === 1 ? '' : 's'} below.
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={discardPendingChanges}>
+                  <RotateCcw className="w-3 h-3 mr-1" /> Discard
+                </Button>
+                <Button size="sm" className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700" onClick={keepPendingChanges}>
+                  <Check className="w-3 h-3 mr-1" /> Keep changes
+                </Button>
+              </div>
+            </div>
+          )}
+
           <ScrollArea className="flex-1">
             <div className="p-6 flex justify-center">
               {liveSections.length > 0 ? (
-                <div style={{ transform: `scale(${previewZoom / 100})`, transformOrigin: 'top center' }}>
+                <div className="mx-auto" style={{ transform: `scale(${previewZoom / 100})`, transformOrigin: 'top center' }}>
                   <ResumePreview
                     ref={previewRef}
                     sections={liveSections}
                     theme={selectedTheme}
                     customColor={customColor || undefined}
                     template={selectedTemplate}
+                    highlightedSectionIds={pendingEdit?.changedSectionIds}
                   />
                 </div>
               ) : (
