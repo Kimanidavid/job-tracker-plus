@@ -496,6 +496,9 @@ export default function ResumeBuilder() {
     toast({ title: 'Copied to clipboard' });
   };
 
+  // ── Intent classification: distinguish edit requests from conversation ──
+  const EDIT_INTENT_RE = /\b(add|adds|adding|remove|removes|removing|delete|deletes|deleting|change|changes|changing|update|updates|updating|rewrite|rewrites|rephrase|rephrases|fix|fixes|fixing|improve|improves|improving|tailor|tailors|tailoring|replace|replaces|replacing|insert|inserts|inserting|shorten|shortens|expand|expands|move|moves|reorder|reorders|reword|rewords|optimi[sz]e|optimi[sz]es|highlight|highlights|bold|put|edit|edits|editing|append|appends|create|creates|make (?:it|this|the|my) (?:sound|stronger|shorter|longer|better|more)|turn (?:this|it) into|convert)\b/i;
+
   // ── AI chat ──
   const handleChatSend = async (customMsg?: string) => {
     const msg = (customMsg || chatInput).trim();
@@ -513,32 +516,45 @@ export default function ResumeBuilder() {
         s.type === 'header' ? s.content : `${s.title}\n${s.content}`
       ).join('\n\n');
 
+      const isEditIntent = EDIT_INTENT_RE.test(msg);
+
+      if (!isEditIntent) {
+        // Conversation / advice — do NOT modify the CV
+        const reply = await callResumeAI('chat', { resume: resumeText, editInstruction: msg });
+        setChatMessages(prev => [...prev, { role: 'assistant', content: reply || 'Sorry, no response.' }]);
+        return;
+      }
+
+      // Edit intent
       const enhancedInstruction = `You have full control to edit this CV. The user's request: "${msg}"
 
 Guidelines:
-- Make precise, targeted edits based on the request
-- Preserve all other content that wasn't asked to be changed
-- Keep formatting consistent (use bullet points with -)
-- For adding sections, create them with appropriate titles
-- For removing content, remove it completely
-- For rewording, improve clarity while keeping meaning
+- Make ONLY the changes the user explicitly asked for
+- Preserve everything else exactly as-is
+- Keep formatting consistent (use "- " for bullets)
+- For new sections, give them appropriate titles
 
-Apply the requested changes and return the complete updated CV.`;
+Return the complete updated CV.`;
 
       const result = await callResumeAI('edit', { resume: resumeText, editInstruction: enhancedInstruction });
       if (result) {
+        const previousSections = liveSections;
+        let nextSections: ResumeSection[];
         try {
           const formatted = await callResumeAI('format', { resume: result });
-          if (formatted && formatted.person_name) {
-            setSections(convertAIFormatToSections(formatted));
-          } else {
-            setSections(parseResumeToSections(result));
-          }
-          setChatMessages(prev => [...prev, { role: 'assistant', content: '✓ Done! CV updated.' }]);
+          nextSections = (formatted && formatted.person_name)
+            ? convertAIFormatToSections(formatted)
+            : orderSections(parseResumeToSections(result));
         } catch {
-          setSections(parseResumeToSections(result));
-          setChatMessages(prev => [...prev, { role: 'assistant', content: '✓ Changes applied!' }]);
+          nextSections = orderSections(parseResumeToSections(result));
         }
+        setSections(nextSections);
+        const changedIds = diffChangedIds(previousSections, nextSections);
+        setPendingEdit({ previousSections, changedSectionIds: changedIds });
+        setChatMessages(prev => [...prev, {
+          role: 'assistant',
+          content: `✓ Updated ${changedIds.length} section${changedIds.length === 1 ? '' : 's'}. Review the highlighted area${changedIds.length === 1 ? '' : 's'} and Keep or Discard the changes.`,
+        }]);
       }
     } catch (err: any) {
       setChatMessages(prev => [...prev, { role: 'assistant', content: `⚠️ Error: ${err.message}` }]);
@@ -546,6 +562,72 @@ Apply the requested changes and return the complete updated CV.`;
       setChatLoading(false);
       setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
     }
+  };
+
+  // ── Section-level editing ──
+  const startManualEdit = (section: ResumeSection) => {
+    setSectionEditingId(section.id);
+    setSectionEditDraft(section.content);
+  };
+
+  const saveManualEdit = () => {
+    if (!sectionEditingId) return;
+    const previousSections = liveSections;
+    const next = liveSections.map(s =>
+      s.id === sectionEditingId ? { ...s, content: sectionEditDraft } : s,
+    );
+    setSections(next);
+    setSectionEditingId(null);
+    setSectionEditDraft('');
+    // Manual edits aren't AI changes — no review banner.
+    void previousSections;
+  };
+
+  const runSectionAiEdit = async (section: ResumeSection, instruction: string) => {
+    if (!instruction.trim()) return;
+    setSectionAiLoadingId(section.id);
+    try {
+      const newContent = await callResumeAI('edit_section', {
+        resume: section.content,
+        editInstruction: instruction,
+      });
+      if (typeof newContent === 'string' && newContent.trim()) {
+        const previousSections = liveSections;
+        const next = liveSections.map(s =>
+          s.id === section.id ? { ...s, content: newContent.trim() } : s,
+        );
+        setSections(next);
+        setPendingEdit({ previousSections, changedSectionIds: [section.id] });
+        setSectionAiInstruction('');
+        toast({ title: 'Section updated', description: 'Review highlighted change in the preview.' });
+      }
+    } catch (err: any) {
+      toast({ title: 'AI edit failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setSectionAiLoadingId(null);
+    }
+  };
+
+  const keepPendingChanges = () => {
+    setPendingEdit(null);
+    if (selectedResumeId || resumeContent.trim()) {
+      // Persist as base resume content from current sections
+      const flat = liveSections.map(s =>
+        s.type === 'header' ? s.content : `${s.title}\n${s.content}`,
+      ).join('\n\n');
+      setResumeContent(flat);
+      saveResume.mutate({
+        id: selectedResumeId || undefined,
+        title: resumeTitle || 'My Resume',
+        content: flat,
+        is_base: true,
+      });
+    }
+  };
+
+  const discardPendingChanges = () => {
+    if (pendingEdit) setSections(pendingEdit.previousSections);
+    setPendingEdit(null);
   };
 
   const suggestedActions = [
