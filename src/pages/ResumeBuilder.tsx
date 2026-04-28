@@ -24,8 +24,9 @@ import {
   Download, Eye, Palette, GripVertical, LayoutTemplate,
   Send, MessageSquare, ChevronDown, Plus, Search, Pencil,
   PanelRightClose, PanelRightOpen, ZoomIn, ZoomOut,
-  User, Briefcase, X, Mic, Undo2, Redo2,
+  User, Briefcase, X, Mic, Undo2, Redo2, Check, RotateCcw,
 } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 // ── AI structured format → ResumeSection[] ──
 function convertAIFormatToSections(formatted: {
