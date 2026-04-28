@@ -760,7 +760,118 @@ Apply the requested changes and return the complete updated CV.`;
             </Card>
           </div>
         )}
+
+        {/* Create Base Resume dialog */}
+        {createDialogOpen && (
+          <div
+            className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setCreateDialogOpen(false)}
+          >
+            <Card className="max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
+              <CardHeader>
+                <CardTitle className="text-lg">Create Base Resume</CardTitle>
+                <CardDescription>Upload an existing resume or start from scratch.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Mode tabs */}
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setCreateMode('upload')}
+                    className={`p-3 rounded-md border text-left transition-colors ${
+                      createMode === 'upload'
+                        ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
+                        : 'border-border hover:border-primary/40'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <FileUp className="w-4 h-4 text-primary" />
+                      <span className="text-sm font-semibold">Upload resume</span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">PDF, DOCX, or TXT</p>
+                  </button>
+                  <button
+                    onClick={() => setCreateMode('scratch')}
+                    className={`p-3 rounded-md border text-left transition-colors ${
+                      createMode === 'scratch'
+                        ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
+                        : 'border-border hover:border-primary/40'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <Plus className="w-4 h-4 text-primary" />
+                      <span className="text-sm font-semibold">Start from scratch</span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">Build it section by section</p>
+                  </button>
+                </div>
+
+                {/* Upload picker */}
+                {createMode === 'upload' && (
+                  <div>
+                    <input
+                      ref={createFileInputRef}
+                      type="file"
+                      accept=".pdf,.doc,.docx,.txt,.md"
+                      className="hidden"
+                      onChange={(e) => setPendingFile(e.target.files?.[0] || null)}
+                    />
+                    <button
+                      onClick={() => createFileInputRef.current?.click()}
+                      className="w-full p-4 rounded-md border-2 border-dashed border-border hover:border-primary/40 hover:bg-accent/30 transition-colors text-center"
+                    >
+                      <FileUp className="w-5 h-5 mx-auto mb-1.5 text-muted-foreground" />
+                      <p className="text-sm font-medium">
+                        {pendingFile ? pendingFile.name : 'Click to choose a file'}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        We'll parse and preview it automatically
+                      </p>
+                    </button>
+                  </div>
+                )}
+
+                {/* Job title */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="newJobTitle" className="text-xs">
+                    Job title / role <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="newJobTitle"
+                    placeholder="e.g. Senior Product Manager"
+                    value={newJobTitle}
+                    onChange={(e) => setNewJobTitle(e.target.value)}
+                  />
+                  <p className="text-[11px] text-muted-foreground">Used to name your CV.</p>
+                </div>
+
+                {/* Set as base toggle */}
+                <div className="flex items-center justify-between p-2.5 rounded-md border bg-muted/30">
+                  <div>
+                    <p className="text-sm font-medium">Set as base resume</p>
+                    <p className="text-[11px] text-muted-foreground">Save this as your reusable starting point.</p>
+                  </div>
+                  <Switch checked={newSetAsBase} onCheckedChange={setNewSetAsBase} />
+                </div>
+
+                {/* Footer */}
+                <div className="flex justify-end gap-2 pt-1">
+                  <Button variant="outline" size="sm" onClick={() => setCreateDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleCreateContinue}
+                    disabled={!newJobTitle.trim() || (createMode === 'upload' && !pendingFile)}
+                  >
+                    Continue
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
+
     );
   }
 
