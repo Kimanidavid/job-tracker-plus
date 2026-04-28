@@ -912,13 +912,6 @@ Apply the requested changes and return the complete updated CV.`;
           <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => setChatMessages([])}>
             <X className="w-3.5 h-3.5 mr-1" /> Clear
           </Button>
-          <Button variant="ghost" size="sm" className="h-8 text-xs">
-            <Bug className="w-3.5 h-3.5 mr-1" /> Report Bug
-          </Button>
-          <Badge variant="outline" className="h-7 rounded-full bg-emerald-50 text-emerald-700 border-emerald-200 text-xs">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5" />
-            Tokens left: {chatTokens}
-          </Badge>
           <Button variant="destructive" size="sm" className="h-8 text-xs ml-2" onClick={() => setShowAssistant(false)}>
             Close Chat
           </Button>
@@ -927,18 +920,10 @@ Apply the requested changes and return the complete updated CV.`;
         {/* Right segment */}
         <div className="flex items-center gap-2 justify-end">
           <Button
-            variant={showTemplates ? 'default' : 'outline'}
-            size="sm"
-            className="h-8 text-xs"
-            onClick={() => { setShowTemplates(v => !v); setShowLayoutStyle(false); }}
-          >
-            <LayoutTemplate className="w-3.5 h-3.5 mr-1" /> Templates
-          </Button>
-          <Button
             variant={showLayoutStyle ? 'default' : 'outline'}
             size="sm"
             className="h-8 text-xs"
-            onClick={() => { setShowLayoutStyle(v => !v); setShowTemplates(false); }}
+            onClick={() => setShowLayoutStyle(v => !v)}
           >
             <Palette className="w-3.5 h-3.5 mr-1" /> Layout & Style
           </Button>
