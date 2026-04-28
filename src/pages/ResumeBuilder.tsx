@@ -92,12 +92,18 @@ export default function ResumeBuilder() {
 
   // ── Editor UI state ──
   const [showAssistant, setShowAssistant] = useState(true);
-  const [showTemplates, setShowTemplates] = useState(false);
   const [showLayoutStyle, setShowLayoutStyle] = useState(false);
   const [previewZoom, setPreviewZoom] = useState(80);
-  const [chatTokens] = useState(25);
   const [analysisOpen, setAnalysisOpen] = useState(true);
   const [personalInfoOpen, setPersonalInfoOpen] = useState(true);
+
+  // ── Create base resume dialog ──
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [createMode, setCreateMode] = useState<'upload' | 'scratch'>('upload');
+  const [newJobTitle, setNewJobTitle] = useState('');
+  const [newSetAsBase, setNewSetAsBase] = useState(true);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const createFileInputRef = useRef<HTMLInputElement>(null);
 
   // Personal info form (visual-only structured fields)
   const [piName, setPiName] = useState('');
