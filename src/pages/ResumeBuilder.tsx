@@ -56,7 +56,32 @@ function convertAIFormatToSections(formatted: {
     else if (/experience|work|employment/.test(t)) type = 'experience';
     sections.push({ id: crypto.randomUUID(), type, title: s.title, content: s.content, visible: true });
   }
-  return sections;
+  return orderSections(sections);
+}
+
+/** Enforce CV section order: header → summary → experience → education → skills → custom */
+export function orderSections(sections: ResumeSection[]): ResumeSection[] {
+  const rank: Record<ResumeSection['type'], number> = {
+    header: 0, summary: 1, experience: 2, education: 3, skills: 4, custom: 5,
+  };
+  return [...sections].sort((a, b) => {
+    const ra = rank[a.type] ?? 5;
+    const rb = rank[b.type] ?? 5;
+    if (ra !== rb) return ra - rb;
+    return 0;
+  });
+}
+
+/** Diff two section arrays, return ids whose content changed (or are new). */
+function diffChangedIds(prev: ResumeSection[], next: ResumeSection[]): string[] {
+  const prevById = new Map(prev.map(s => [s.id, s]));
+  const prevByTitle = new Map(prev.map(s => [s.title.toLowerCase().trim(), s]));
+  const changed: string[] = [];
+  for (const s of next) {
+    const p = prevById.get(s.id) || prevByTitle.get(s.title.toLowerCase().trim());
+    if (!p || p.content.trim() !== s.content.trim()) changed.push(s.id);
+  }
+  return changed;
 }
 
 type ViewMode = 'landing' | 'editor';
