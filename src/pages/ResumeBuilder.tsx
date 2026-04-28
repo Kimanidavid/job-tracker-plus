@@ -24,7 +24,7 @@ import {
   Download, Eye, Palette, GripVertical, LayoutTemplate,
   Send, MessageSquare, ChevronDown, Plus, Search, Pencil,
   PanelRightClose, PanelRightOpen, ZoomIn, ZoomOut,
-  User, Briefcase, X, Bug, Mic, Undo2, Redo2,
+  User, Briefcase, X, Mic, Undo2, Redo2,
 } from 'lucide-react';
 
 // ── AI structured format → ResumeSection[] ──
