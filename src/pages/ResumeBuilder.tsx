@@ -430,14 +430,18 @@ export default function ResumeBuilder() {
 
   // ── Save / AI actions ──
   const handleSaveBase = () => {
-    if (!resumeContent.trim()) {
+    const flat = liveSections.length
+      ? liveSections.map(s => (s.type === 'header' ? s.content : `${s.title}\n${s.content}`)).join('\n\n')
+      : resumeContent;
+    if (!flat.trim()) {
       toast({ title: 'Resume content is empty', variant: 'destructive' });
       return;
     }
+    setResumeContent(flat);
     saveResume.mutate({
       id: selectedResumeId || undefined,
       title: resumeTitle || 'My Resume',
-      content: resumeContent,
+      content: flat,
       is_base: true,
     });
   };
