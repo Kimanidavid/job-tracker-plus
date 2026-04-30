@@ -27,6 +27,15 @@ import {
   User, Briefcase, X, Mic, Undo2, Redo2, Check, RotateCcw,
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  DndContext, closestCenter, KeyboardSensor, PointerSensor,
+  useSensor, useSensors, type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove, SortableContext, sortableKeyboardCoordinates,
+  useSortable, verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 // ── AI structured format → ResumeSection[] ──
 function convertAIFormatToSections(formatted: {
@@ -86,6 +95,21 @@ function diffChangedIds(prev: ResumeSection[], next: ResumeSection[]): string[] 
 
 type ViewMode = 'landing' | 'editor';
 type EditorMode = 'base' | 'tailored';
+
+function SortableSectionRow({ id, disabled, children }: { id: string; disabled?: boolean; children: (handleProps: { listeners: any; attributes: any; setActivatorRef: (el: HTMLElement | null) => void }) => React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id, disabled });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+  };
+  return (
+    <div ref={setNodeRef} style={style}>
+      {children({ listeners, attributes, setActivatorRef: setActivatorNodeRef })}
+    </div>
+  );
+}
+
 
 export default function ResumeBuilder() {
   const { toast } = useToast();
@@ -163,9 +187,31 @@ export default function ResumeBuilder() {
   const activeContent = tailoredContent || resumeContent;
   const parsedSections = useMemo(() => parseResumeToSections(activeContent), [activeContent]);
   const liveSections = useMemo(
-    () => orderSections(sections.length ? sections : parsedSections),
+    () => (sections.length ? sections : orderSections(parsedSections)),
     [sections, parsedSections],
   );
+
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleSectionDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const current = sections.length ? sections : orderSections(parsedSections);
+    const oldIndex = current.findIndex(s => s.id === active.id);
+    const newIndex = current.findIndex(s => s.id === over.id);
+    if (oldIndex < 0 || newIndex < 0) return;
+    let next = arrayMove(current, oldIndex, newIndex);
+    // Always keep header pinned to top
+    const headerIdx = next.findIndex(s => s.type === 'header');
+    if (headerIdx > 0) {
+      const [hdr] = next.splice(headerIdx, 1);
+      next = [hdr, ...next];
+    }
+    setSections(next);
+  };
 
   // ── Derived: filtered resumes for landing ──
   const filteredBase = useMemo(() => {
@@ -1268,69 +1314,89 @@ Return the complete updated CV.`;
                         Upload a CV from the landing page to start editing sections.
                       </p>
                     ) : (
-                      liveSections.map(section => {
-                        const isEditingThis = sectionEditingId === section.id;
-                        const isAiLoading = sectionAiLoadingId === section.id;
-                        return (
-                          <div key={section.id} className="rounded-md border bg-background p-2 space-y-1.5">
-                            <div className="flex items-center gap-1.5">
-                              <span className="flex-1 text-xs font-semibold truncate">{section.title}</span>
-                              <Popover>
-                                <PopoverTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7" title="Edit with AI" disabled={isAiLoading}>
-                                    {isAiLoading
-                                      ? <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
-                                      : <Wand2 className="w-3.5 h-3.5 text-primary" />}
-                                  </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-72 p-3" align="end">
-                                  <p className="text-[11px] font-semibold mb-1.5">Edit "{section.title}" with AI</p>
-                                  <Textarea
-                                    placeholder="e.g. Make bullets stronger and add metrics"
-                                    value={sectionAiInstruction}
-                                    onChange={(e) => setSectionAiInstruction(e.target.value)}
-                                    className="text-xs min-h-[70px]"
-                                  />
-                                  <div className="flex justify-end gap-1.5 mt-2">
-                                    <Button
-                                      size="sm"
-                                      className="h-7 text-xs"
-                                      onClick={() => runSectionAiEdit(section, sectionAiInstruction)}
-                                      disabled={!sectionAiInstruction.trim() || isAiLoading}
-                                    >
-                                      <Sparkles className="w-3 h-3 mr-1" /> Apply
-                                    </Button>
+                      <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleSectionDragEnd}>
+                        <SortableContext items={liveSections.map(s => s.id)} strategy={verticalListSortingStrategy}>
+                          {liveSections.map(section => {
+                            const isEditingThis = sectionEditingId === section.id;
+                            const isAiLoading = sectionAiLoadingId === section.id;
+                            const isHeader = section.type === 'header';
+                            return (
+                              <SortableSectionRow key={section.id} id={section.id} disabled={isHeader}>
+                                {({ listeners, attributes, setActivatorRef }) => (
+                                  <div className="rounded-md border bg-background p-2 space-y-1.5 mb-2">
+                                    <div className="flex items-center gap-1.5">
+                                      <button
+                                        ref={setActivatorRef}
+                                        {...listeners}
+                                        {...attributes}
+                                        type="button"
+                                        title={isHeader ? 'Header is pinned' : 'Drag to reorder'}
+                                        disabled={isHeader}
+                                        className={`h-7 w-5 flex items-center justify-center text-muted-foreground ${isHeader ? 'opacity-30 cursor-not-allowed' : 'cursor-grab active:cursor-grabbing hover:text-foreground'}`}
+                                      >
+                                        <GripVertical className="w-3.5 h-3.5" />
+                                      </button>
+                                      <span className="flex-1 text-xs font-semibold truncate">{section.title}</span>
+                                      <Popover>
+                                        <PopoverTrigger asChild>
+                                          <Button variant="ghost" size="icon" className="h-7 w-7" title="Edit with AI" disabled={isAiLoading}>
+                                            {isAiLoading
+                                              ? <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                                              : <Wand2 className="w-3.5 h-3.5 text-primary" />}
+                                          </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-72 p-3" align="end">
+                                          <p className="text-[11px] font-semibold mb-1.5">Edit "{section.title}" with AI</p>
+                                          <Textarea
+                                            placeholder="e.g. Make bullets stronger and add metrics"
+                                            value={sectionAiInstruction}
+                                            onChange={(e) => setSectionAiInstruction(e.target.value)}
+                                            className="text-xs min-h-[70px]"
+                                          />
+                                          <div className="flex justify-end gap-1.5 mt-2">
+                                            <Button
+                                              size="sm"
+                                              className="h-7 text-xs"
+                                              onClick={() => runSectionAiEdit(section, sectionAiInstruction)}
+                                              disabled={!sectionAiInstruction.trim() || isAiLoading}
+                                            >
+                                              <Sparkles className="w-3 h-3 mr-1" /> Apply
+                                            </Button>
+                                          </div>
+                                        </PopoverContent>
+                                      </Popover>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7"
+                                        title="Edit manually"
+                                        onClick={() => isEditingThis ? saveManualEdit() : startManualEdit(section)}
+                                      >
+                                        {isEditingThis
+                                          ? <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                          : <Pencil className="w-3.5 h-3.5" />}
+                                      </Button>
+                                      <Switch
+                                        checked={section.visible}
+                                        onCheckedChange={() => toggleSectionVisibility(section.id)}
+                                      />
+                                    </div>
+                                    {isEditingThis && (
+                                      <Textarea
+                                        value={sectionEditDraft}
+                                        onChange={(e) => setSectionEditDraft(e.target.value)}
+                                        onBlur={saveManualEdit}
+                                        className="text-xs font-mono min-h-[120px]"
+                                        autoFocus
+                                      />
+                                    )}
                                   </div>
-                                </PopoverContent>
-                              </Popover>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7"
-                                title="Edit manually"
-                                onClick={() => isEditingThis ? saveManualEdit() : startManualEdit(section)}
-                              >
-                                {isEditingThis
-                                  ? <Check className="w-3.5 h-3.5 text-emerald-600" />
-                                  : <Pencil className="w-3.5 h-3.5" />}
-                              </Button>
-                              <Switch
-                                checked={section.visible}
-                                onCheckedChange={() => toggleSectionVisibility(section.id)}
-                              />
-                            </div>
-                            {isEditingThis && (
-                              <Textarea
-                                value={sectionEditDraft}
-                                onChange={(e) => setSectionEditDraft(e.target.value)}
-                                onBlur={saveManualEdit}
-                                className="text-xs font-mono min-h-[120px]"
-                                autoFocus
-                              />
-                            )}
-                          </div>
-                        );
-                      })
+                                )}
+                              </SortableSectionRow>
+                            );
+                          })}
+                        </SortableContext>
+                      </DndContext>
                     )}
                   </CardContent>
                 </CollapsibleContent>
@@ -1504,17 +1570,31 @@ Return the complete updated CV.`;
           )}
 
           <ScrollArea className="flex-1">
-            <div className="p-6 flex justify-center">
+            <div className="p-6 flex justify-center min-w-max mx-auto">
               {liveSections.length > 0 ? (
-                <div className="mx-auto" style={{ transform: `scale(${previewZoom / 100})`, transformOrigin: 'top center' }}>
-                  <ResumePreview
-                    ref={previewRef}
-                    sections={liveSections}
-                    theme={selectedTheme}
-                    customColor={customColor || undefined}
-                    template={selectedTemplate}
-                    highlightedSectionIds={pendingEdit?.changedSectionIds}
-                  />
+                <div
+                  style={{
+                    width: `calc(210mm * ${previewZoom / 100})`,
+                    height: `calc(297mm * ${previewZoom / 100})`,
+                  }}
+                >
+                  <div
+                    className="mx-auto"
+                    style={{
+                      transform: `scale(${previewZoom / 100})`,
+                      transformOrigin: 'top left',
+                      width: '210mm',
+                    }}
+                  >
+                    <ResumePreview
+                      ref={previewRef}
+                      sections={liveSections}
+                      theme={selectedTheme}
+                      customColor={customColor || undefined}
+                      template={selectedTemplate}
+                      highlightedSectionIds={pendingEdit?.changedSectionIds}
+                    />
+                  </div>
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
