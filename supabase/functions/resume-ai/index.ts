@@ -277,7 +277,7 @@ Return ONLY the improved resume text, no explanations.`;
 
     const data = await response.json();
 
-    if (action === "format" || action === "score") {
+    if (action === "format" || action === "score" || action === "generate_skills") {
       const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
       if (toolCall) {
         const structured = JSON.parse(toolCall.function.arguments);
