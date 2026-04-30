@@ -176,7 +176,8 @@ export async function exportToDocx(
               borders: noBorders,
               width: { size: PAGE_W, type: WidthType.DXA },
               shading: { fill: hex(p.white), type: ShadingType.CLEAR },
-              margins: { top: 200, bottom: 400, left: 700, right: 700 },
+              // Body content padding: 1" top/bottom (1440 DXA), 0.6" left/right (864 DXA)
+              margins: { top: 1440, bottom: 1440, left: 864, right: 864 },
               children: bodyChildren.length > 0
                 ? bodyChildren
                 : [new Paragraph({ children: [new TextRun({ text: ' ', size: 10 })] })],
