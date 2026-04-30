@@ -1570,17 +1570,31 @@ Return the complete updated CV.`;
           )}
 
           <ScrollArea className="flex-1">
-            <div className="p-6 flex justify-center">
+            <div className="p-6 flex justify-center min-w-max mx-auto">
               {liveSections.length > 0 ? (
-                <div className="mx-auto" style={{ transform: `scale(${previewZoom / 100})`, transformOrigin: 'top center' }}>
-                  <ResumePreview
-                    ref={previewRef}
-                    sections={liveSections}
-                    theme={selectedTheme}
-                    customColor={customColor || undefined}
-                    template={selectedTemplate}
-                    highlightedSectionIds={pendingEdit?.changedSectionIds}
-                  />
+                <div
+                  style={{
+                    width: `calc(210mm * ${previewZoom / 100})`,
+                    height: `calc(297mm * ${previewZoom / 100})`,
+                  }}
+                >
+                  <div
+                    className="mx-auto"
+                    style={{
+                      transform: `scale(${previewZoom / 100})`,
+                      transformOrigin: 'top left',
+                      width: '210mm',
+                    }}
+                  >
+                    <ResumePreview
+                      ref={previewRef}
+                      sections={liveSections}
+                      theme={selectedTheme}
+                      customColor={customColor || undefined}
+                      template={selectedTemplate}
+                      highlightedSectionIds={pendingEdit?.changedSectionIds}
+                    />
+                  </div>
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
