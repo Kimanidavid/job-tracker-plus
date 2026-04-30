@@ -82,6 +82,11 @@ Return ONLY the improved resume text, no explanations.`;
         userPrompt = `Here is the user's current resume for context:\n\n${resume}\n\nUser's message:\n${editInstruction}`;
         break;
 
+      case "generate_skills":
+        systemPrompt = `You are an expert resume skills strategist. Given a candidate's full resume, infer a comprehensive, well-organized Skills section. Group skills into clear categories (e.g. "Languages", "Frameworks & Libraries", "Tools & Platforms", "Cloud & DevOps", "Data & AI", "Soft Skills") relevant to this candidate. Only include skills that are genuinely supported by the experience, projects, education, or stated tools in the resume — do not invent unrelated skills. Use the generate_skills tool to return the structured result.`;
+        userPrompt = `Resume:\n\n${resume}${editInstruction ? `\n\nAdditional guidance: ${editInstruction}` : ''}`;
+        break;
+
       default:
         return new Response(JSON.stringify({ error: "Invalid action" }), {
           status: 400,
@@ -202,6 +207,44 @@ Return ONLY the improved resume text, no explanations.`;
       body.tool_choice = { type: "function", function: { name: "score_resume" } };
     }
 
+    // Tool calling for generate_skills action
+    if (action === "generate_skills") {
+      body.tools = [
+        {
+          type: "function",
+          function: {
+            name: "generate_skills",
+            description: "Return a categorized Skills section inferred from the candidate's resume",
+            parameters: {
+              type: "object",
+              properties: {
+                categories: {
+                  type: "array",
+                  description: "Skill categories (3-7 categories typical). Each category has a label and a list of concise skill items.",
+                  items: {
+                    type: "object",
+                    properties: {
+                      label: { type: "string", description: "Category name, e.g. 'Languages', 'Frameworks & Libraries', 'Cloud & DevOps'" },
+                      items: {
+                        type: "array",
+                        items: { type: "string" },
+                        description: "Concise skill names within this category"
+                      }
+                    },
+                    required: ["label", "items"],
+                    additionalProperties: false
+                  }
+                }
+              },
+              required: ["categories"],
+              additionalProperties: false
+            }
+          }
+        }
+      ];
+      body.tool_choice = { type: "function", function: { name: "generate_skills" } };
+    }
+
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -234,7 +277,7 @@ Return ONLY the improved resume text, no explanations.`;
 
     const data = await response.json();
 
-    if (action === "format" || action === "score") {
+    if (action === "format" || action === "score" || action === "generate_skills") {
       const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
       if (toolCall) {
         const structured = JSON.parse(toolCall.function.arguments);

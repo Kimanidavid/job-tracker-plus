@@ -658,6 +658,56 @@ Return the complete updated CV.`;
     }
   };
 
+  // ── Generate Skills (Claude-style skill catalogue) ──
+  const [generatingSkills, setGeneratingSkills] = useState(false);
+  const handleGenerateSkills = async () => {
+    if (liveSections.length === 0) {
+      toast({ title: 'Add resume content first', description: 'Upload a CV or create one before generating skills.', variant: 'destructive' });
+      return;
+    }
+    setGeneratingSkills(true);
+    try {
+      const flat = liveSections.map(s =>
+        s.type === 'header' ? s.content : `${s.title}\n${s.content}`,
+      ).join('\n\n');
+      const result = await callResumeAI('generate_skills', { resume: flat });
+      const categories: { label: string; items: string[] }[] = result?.categories ?? [];
+      if (!categories.length) throw new Error('No skills returned');
+
+      const skillsContent = categories
+        .map(c => `${c.label}\n${c.items.map(i => `- ${i}`).join('\n')}`)
+        .join('\n\n');
+
+      const previousSections = liveSections;
+      const existingSkills = liveSections.find(s => s.type === 'skills');
+      let next: ResumeSection[];
+      let changedId: string;
+      if (existingSkills) {
+        changedId = existingSkills.id;
+        next = liveSections.map(s =>
+          s.id === existingSkills.id ? { ...s, content: skillsContent, visible: true } : s,
+        );
+      } else {
+        const newSection: ResumeSection = {
+          id: crypto.randomUUID(),
+          type: 'skills',
+          title: 'Skills',
+          content: skillsContent,
+          visible: true,
+        };
+        changedId = newSection.id;
+        next = orderSections([...liveSections, newSection]);
+      }
+      setSections(next);
+      setPendingEdit({ previousSections, changedSectionIds: [changedId] });
+      toast({ title: 'Skills generated', description: 'Review the highlighted Skills section and Keep or Discard.' });
+    } catch (err: any) {
+      toast({ title: 'Generation failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setGeneratingSkills(false);
+    }
+  };
+
   const keepPendingChanges = () => {
     setPendingEdit(null);
     if (selectedResumeId || resumeContent.trim()) {
@@ -1112,9 +1162,13 @@ Return the complete updated CV.`;
             <Save className="w-3.5 h-3.5 mr-1" />
             {selectedResumeId ? 'Update' : 'Save'}
           </Button>
+          <Button size="sm" variant="outline" className="h-8 text-xs" onClick={handleExportDocx} disabled={exportLoading}>
+            {exportLoading ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Download className="w-3.5 h-3.5 mr-1" />}
+            DOCX
+          </Button>
           <Button size="sm" className="h-8 text-xs bg-foreground text-background hover:bg-foreground/90" onClick={handleExportPdf} disabled={exportLoading}>
             {exportLoading ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Download className="w-3.5 h-3.5 mr-1" />}
-            Download PDF
+            PDF
           </Button>
         </div>
       </header>
@@ -1314,6 +1368,23 @@ Return the complete updated CV.`;
                         Upload a CV from the landing page to start editing sections.
                       </p>
                     ) : (
+                      <>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full h-8 text-xs mb-2 border-dashed"
+                        onClick={handleGenerateSkills}
+                        disabled={generatingSkills}
+                        title={liveSections.some(s => s.type === 'skills') ? 'Regenerate Skills section with AI' : 'Add a Skills section with AI'}
+                      >
+                        {generatingSkills
+                          ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                          : <Sparkles className="w-3.5 h-3.5 mr-1.5 text-primary" />}
+                        {liveSections.some(s => s.type === 'skills') ? 'Regenerate Skills with AI' : 'Generate Skills with AI'}
+                      </Button>
+                      </>
+                    )}
+                    {liveSections.length > 0 && (
                       <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleSectionDragEnd}>
                         <SortableContext items={liveSections.map(s => s.id)} strategy={verticalListSortingStrategy}>
                           {liveSections.map(section => {
