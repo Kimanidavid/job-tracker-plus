@@ -658,7 +658,56 @@ Return the complete updated CV.`;
     }
   };
 
-  const keepPendingChanges = () => {
+  // ── Generate Skills (Claude-style skill catalogue) ──
+  const [generatingSkills, setGeneratingSkills] = useState(false);
+  const handleGenerateSkills = async () => {
+    if (liveSections.length === 0) {
+      toast({ title: 'Add resume content first', description: 'Upload a CV or create one before generating skills.', variant: 'destructive' });
+      return;
+    }
+    setGeneratingSkills(true);
+    try {
+      const flat = liveSections.map(s =>
+        s.type === 'header' ? s.content : `${s.title}\n${s.content}`,
+      ).join('\n\n');
+      const result = await callResumeAI('generate_skills', { resume: flat });
+      const categories: { label: string; items: string[] }[] = result?.categories ?? [];
+      if (!categories.length) throw new Error('No skills returned');
+
+      const skillsContent = categories
+        .map(c => `${c.label}\n${c.items.map(i => `- ${i}`).join('\n')}`)
+        .join('\n\n');
+
+      const previousSections = liveSections;
+      const existingSkills = liveSections.find(s => s.type === 'skills');
+      let next: ResumeSection[];
+      let changedId: string;
+      if (existingSkills) {
+        changedId = existingSkills.id;
+        next = liveSections.map(s =>
+          s.id === existingSkills.id ? { ...s, content: skillsContent, visible: true } : s,
+        );
+      } else {
+        const newSection: ResumeSection = {
+          id: crypto.randomUUID(),
+          type: 'skills',
+          title: 'Skills',
+          content: skillsContent,
+          visible: true,
+        };
+        changedId = newSection.id;
+        next = orderSections([...liveSections, newSection]);
+      }
+      setSections(next);
+      setPendingEdit({ previousSections, changedSectionIds: [changedId] });
+      toast({ title: 'Skills generated', description: 'Review the highlighted Skills section and Keep or Discard.' });
+    } catch (err: any) {
+      toast({ title: 'Generation failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setGeneratingSkills(false);
+    }
+  };
+
     setPendingEdit(null);
     if (selectedResumeId || resumeContent.trim()) {
       // Persist as base resume content from current sections
