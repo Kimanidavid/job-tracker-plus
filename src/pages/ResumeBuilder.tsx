@@ -1368,6 +1368,23 @@ Return the complete updated CV.`;
                         Upload a CV from the landing page to start editing sections.
                       </p>
                     ) : (
+                      <>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full h-8 text-xs mb-2 border-dashed"
+                        onClick={handleGenerateSkills}
+                        disabled={generatingSkills}
+                        title={liveSections.some(s => s.type === 'skills') ? 'Regenerate Skills section with AI' : 'Add a Skills section with AI'}
+                      >
+                        {generatingSkills
+                          ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                          : <Sparkles className="w-3.5 h-3.5 mr-1.5 text-primary" />}
+                        {liveSections.some(s => s.type === 'skills') ? 'Regenerate Skills with AI' : 'Generate Skills with AI'}
+                      </Button>
+                      </>
+                    )}
+                    {liveSections.length > 0 && (
                       <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleSectionDragEnd}>
                         <SortableContext items={liveSections.map(s => s.id)} strategy={verticalListSortingStrategy}>
                           {liveSections.map(section => {
