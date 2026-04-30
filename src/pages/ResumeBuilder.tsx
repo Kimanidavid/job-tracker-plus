@@ -1314,69 +1314,89 @@ Return the complete updated CV.`;
                         Upload a CV from the landing page to start editing sections.
                       </p>
                     ) : (
-                      liveSections.map(section => {
-                        const isEditingThis = sectionEditingId === section.id;
-                        const isAiLoading = sectionAiLoadingId === section.id;
-                        return (
-                          <div key={section.id} className="rounded-md border bg-background p-2 space-y-1.5">
-                            <div className="flex items-center gap-1.5">
-                              <span className="flex-1 text-xs font-semibold truncate">{section.title}</span>
-                              <Popover>
-                                <PopoverTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7" title="Edit with AI" disabled={isAiLoading}>
-                                    {isAiLoading
-                                      ? <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
-                                      : <Wand2 className="w-3.5 h-3.5 text-primary" />}
-                                  </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-72 p-3" align="end">
-                                  <p className="text-[11px] font-semibold mb-1.5">Edit "{section.title}" with AI</p>
-                                  <Textarea
-                                    placeholder="e.g. Make bullets stronger and add metrics"
-                                    value={sectionAiInstruction}
-                                    onChange={(e) => setSectionAiInstruction(e.target.value)}
-                                    className="text-xs min-h-[70px]"
-                                  />
-                                  <div className="flex justify-end gap-1.5 mt-2">
-                                    <Button
-                                      size="sm"
-                                      className="h-7 text-xs"
-                                      onClick={() => runSectionAiEdit(section, sectionAiInstruction)}
-                                      disabled={!sectionAiInstruction.trim() || isAiLoading}
-                                    >
-                                      <Sparkles className="w-3 h-3 mr-1" /> Apply
-                                    </Button>
+                      <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleSectionDragEnd}>
+                        <SortableContext items={liveSections.map(s => s.id)} strategy={verticalListSortingStrategy}>
+                          {liveSections.map(section => {
+                            const isEditingThis = sectionEditingId === section.id;
+                            const isAiLoading = sectionAiLoadingId === section.id;
+                            const isHeader = section.type === 'header';
+                            return (
+                              <SortableSectionRow key={section.id} id={section.id} disabled={isHeader}>
+                                {({ listeners, attributes, setActivatorRef }) => (
+                                  <div className="rounded-md border bg-background p-2 space-y-1.5 mb-2">
+                                    <div className="flex items-center gap-1.5">
+                                      <button
+                                        ref={setActivatorRef}
+                                        {...listeners}
+                                        {...attributes}
+                                        type="button"
+                                        title={isHeader ? 'Header is pinned' : 'Drag to reorder'}
+                                        disabled={isHeader}
+                                        className={`h-7 w-5 flex items-center justify-center text-muted-foreground ${isHeader ? 'opacity-30 cursor-not-allowed' : 'cursor-grab active:cursor-grabbing hover:text-foreground'}`}
+                                      >
+                                        <GripVertical className="w-3.5 h-3.5" />
+                                      </button>
+                                      <span className="flex-1 text-xs font-semibold truncate">{section.title}</span>
+                                      <Popover>
+                                        <PopoverTrigger asChild>
+                                          <Button variant="ghost" size="icon" className="h-7 w-7" title="Edit with AI" disabled={isAiLoading}>
+                                            {isAiLoading
+                                              ? <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                                              : <Wand2 className="w-3.5 h-3.5 text-primary" />}
+                                          </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-72 p-3" align="end">
+                                          <p className="text-[11px] font-semibold mb-1.5">Edit "{section.title}" with AI</p>
+                                          <Textarea
+                                            placeholder="e.g. Make bullets stronger and add metrics"
+                                            value={sectionAiInstruction}
+                                            onChange={(e) => setSectionAiInstruction(e.target.value)}
+                                            className="text-xs min-h-[70px]"
+                                          />
+                                          <div className="flex justify-end gap-1.5 mt-2">
+                                            <Button
+                                              size="sm"
+                                              className="h-7 text-xs"
+                                              onClick={() => runSectionAiEdit(section, sectionAiInstruction)}
+                                              disabled={!sectionAiInstruction.trim() || isAiLoading}
+                                            >
+                                              <Sparkles className="w-3 h-3 mr-1" /> Apply
+                                            </Button>
+                                          </div>
+                                        </PopoverContent>
+                                      </Popover>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7"
+                                        title="Edit manually"
+                                        onClick={() => isEditingThis ? saveManualEdit() : startManualEdit(section)}
+                                      >
+                                        {isEditingThis
+                                          ? <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                          : <Pencil className="w-3.5 h-3.5" />}
+                                      </Button>
+                                      <Switch
+                                        checked={section.visible}
+                                        onCheckedChange={() => toggleSectionVisibility(section.id)}
+                                      />
+                                    </div>
+                                    {isEditingThis && (
+                                      <Textarea
+                                        value={sectionEditDraft}
+                                        onChange={(e) => setSectionEditDraft(e.target.value)}
+                                        onBlur={saveManualEdit}
+                                        className="text-xs font-mono min-h-[120px]"
+                                        autoFocus
+                                      />
+                                    )}
                                   </div>
-                                </PopoverContent>
-                              </Popover>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7"
-                                title="Edit manually"
-                                onClick={() => isEditingThis ? saveManualEdit() : startManualEdit(section)}
-                              >
-                                {isEditingThis
-                                  ? <Check className="w-3.5 h-3.5 text-emerald-600" />
-                                  : <Pencil className="w-3.5 h-3.5" />}
-                              </Button>
-                              <Switch
-                                checked={section.visible}
-                                onCheckedChange={() => toggleSectionVisibility(section.id)}
-                              />
-                            </div>
-                            {isEditingThis && (
-                              <Textarea
-                                value={sectionEditDraft}
-                                onChange={(e) => setSectionEditDraft(e.target.value)}
-                                onBlur={saveManualEdit}
-                                className="text-xs font-mono min-h-[120px]"
-                                autoFocus
-                              />
-                            )}
-                          </div>
-                        );
-                      })
+                                )}
+                              </SortableSectionRow>
+                            );
+                          })}
+                        </SortableContext>
+                      </DndContext>
                     )}
                   </CardContent>
                 </CollapsibleContent>
