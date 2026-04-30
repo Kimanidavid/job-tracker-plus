@@ -114,8 +114,10 @@ export async function exportToDocx(
     sections: [{
       properties: {
         page: {
+          // US Letter; we use a 0-margin page so the header/stripe can be edge-to-edge.
+          // Body padding (1" T/B, 0.6" L/R) is applied via the body cell margins below.
           size: { width: PAGE_W, height: 15840 },
-          margin: { top: 0, right: 0, bottom: 400, left: 0 },
+          margin: { top: 0, right: 0, bottom: 0, left: 0 },
         },
       },
       children: [
@@ -174,7 +176,8 @@ export async function exportToDocx(
               borders: noBorders,
               width: { size: PAGE_W, type: WidthType.DXA },
               shading: { fill: hex(p.white), type: ShadingType.CLEAR },
-              margins: { top: 200, bottom: 400, left: 700, right: 700 },
+              // Body content padding: 1" top/bottom (1440 DXA), 0.6" left/right (864 DXA)
+              margins: { top: 1440, bottom: 1440, left: 864, right: 864 },
               children: bodyChildren.length > 0
                 ? bodyChildren
                 : [new Paragraph({ children: [new TextRun({ text: ' ', size: 10 })] })],
@@ -197,6 +200,10 @@ export async function exportToDocx(
 }
 
 // ── PDF Export (html2canvas + jsPDF) ──
+// Renders the resume preview onto US Letter pages with margins:
+//   top/bottom: 1"   (25.4mm)
+//   left/right: 0.6" (15.24mm)
+// Uses canvas slicing so text isn't stretched and pages break cleanly.
 export async function exportToPdf(elementId = 'resume-preview', fileName = 'resume.pdf') {
   const element = document.getElementById(elementId);
   if (!element) throw new Error('Resume preview element not found');
@@ -204,27 +211,58 @@ export async function exportToPdf(elementId = 'resume-preview', fileName = 'resu
   const html2canvas = (await import('html2canvas')).default;
   const { jsPDF } = await import('jspdf');
 
+  // Render at high DPI for sharp text
   const canvas = await html2canvas(element, {
     scale: 2,
     useCORS: true,
     logging: false,
     backgroundColor: '#ffffff',
+    windowWidth: element.scrollWidth,
   });
 
-  const imgData = canvas.toDataURL('image/png');
-  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  const pdfWidth = pdf.internal.pageSize.getWidth();
-  const pdfHeight = pdf.internal.pageSize.getHeight();
-  const imgWidth = pdfWidth;
-  const imgHeight = (canvas.height * imgWidth) / canvas.width;
+  // US Letter in mm
+  const PAGE_W_MM = 215.9;
+  const PAGE_H_MM = 279.4;
+  const MARGIN_X_MM = 15.24; // 0.6"
+  const MARGIN_Y_MM = 25.4;  // 1"
+  const CONTENT_W_MM = PAGE_W_MM - MARGIN_X_MM * 2; // 185.42mm
+  const CONTENT_H_MM = PAGE_H_MM - MARGIN_Y_MM * 2; // 228.6mm
 
-  let position = 0;
-  let remaining = imgHeight;
-  while (remaining > 0) {
-    if (position > 0) pdf.addPage();
-    pdf.addImage(imgData, 'PNG', 0, -position, imgWidth, imgHeight);
-    position += pdfHeight;
-    remaining -= pdfHeight;
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
+
+  // Map canvas pixels → mm using full image scaled to content width
+  const pxPerMm = canvas.width / CONTENT_W_MM;
+  const sliceHeightPx = Math.floor(CONTENT_H_MM * pxPerMm);
+  const totalPages = Math.max(1, Math.ceil(canvas.height / sliceHeightPx));
+
+  for (let pageIdx = 0; pageIdx < totalPages; pageIdx++) {
+    const sy = pageIdx * sliceHeightPx;
+    const sh = Math.min(sliceHeightPx, canvas.height - sy);
+
+    // Create a per-page canvas slice
+    const pageCanvas = document.createElement('canvas');
+    pageCanvas.width = canvas.width;
+    pageCanvas.height = sh;
+    const ctx = pageCanvas.getContext('2d');
+    if (!ctx) continue;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+    ctx.drawImage(canvas, 0, sy, canvas.width, sh, 0, 0, canvas.width, sh);
+
+    const imgData = pageCanvas.toDataURL('image/jpeg', 0.95);
+    const sliceHeightMm = sh / pxPerMm;
+
+    if (pageIdx > 0) pdf.addPage();
+    pdf.addImage(
+      imgData,
+      'JPEG',
+      MARGIN_X_MM,
+      MARGIN_Y_MM,
+      CONTENT_W_MM,
+      sliceHeightMm,
+    );
   }
+
   pdf.save(fileName);
 }
+
