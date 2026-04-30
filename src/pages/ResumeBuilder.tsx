@@ -172,9 +172,31 @@ export default function ResumeBuilder() {
   const activeContent = tailoredContent || resumeContent;
   const parsedSections = useMemo(() => parseResumeToSections(activeContent), [activeContent]);
   const liveSections = useMemo(
-    () => orderSections(sections.length ? sections : parsedSections),
+    () => (sections.length ? sections : orderSections(parsedSections)),
     [sections, parsedSections],
   );
+
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleSectionDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const current = sections.length ? sections : orderSections(parsedSections);
+    const oldIndex = current.findIndex(s => s.id === active.id);
+    const newIndex = current.findIndex(s => s.id === over.id);
+    if (oldIndex < 0 || newIndex < 0) return;
+    let next = arrayMove(current, oldIndex, newIndex);
+    // Always keep header pinned to top
+    const headerIdx = next.findIndex(s => s.type === 'header');
+    if (headerIdx > 0) {
+      const [hdr] = next.splice(headerIdx, 1);
+      next = [hdr, ...next];
+    }
+    setSections(next);
+  };
 
   // ── Derived: filtered resumes for landing ──
   const filteredBase = useMemo(() => {
