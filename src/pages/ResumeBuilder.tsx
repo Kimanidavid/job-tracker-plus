@@ -96,6 +96,21 @@ function diffChangedIds(prev: ResumeSection[], next: ResumeSection[]): string[] 
 type ViewMode = 'landing' | 'editor';
 type EditorMode = 'base' | 'tailored';
 
+function SortableSectionRow({ id, disabled, children }: { id: string; disabled?: boolean; children: (handleProps: { listeners: any; attributes: any; setActivatorRef: (el: HTMLElement | null) => void }) => React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id, disabled });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+  };
+  return (
+    <div ref={setNodeRef} style={style}>
+      {children({ listeners, attributes, setActivatorRef: setActivatorNodeRef })}
+    </div>
+  );
+}
+
+
 export default function ResumeBuilder() {
   const { toast } = useToast();
   const {
