@@ -82,6 +82,11 @@ Return ONLY the improved resume text, no explanations.`;
         userPrompt = `Here is the user's current resume for context:\n\n${resume}\n\nUser's message:\n${editInstruction}`;
         break;
 
+      case "generate_skills":
+        systemPrompt = `You are an expert resume skills strategist. Given a candidate's full resume, infer a comprehensive, well-organized Skills section. Group skills into clear categories (e.g. "Languages", "Frameworks & Libraries", "Tools & Platforms", "Cloud & DevOps", "Data & AI", "Soft Skills") relevant to this candidate. Only include skills that are genuinely supported by the experience, projects, education, or stated tools in the resume — do not invent unrelated skills. Use the generate_skills tool to return the structured result.`;
+        userPrompt = `Resume:\n\n${resume}${editInstruction ? `\n\nAdditional guidance: ${editInstruction}` : ''}`;
+        break;
+
       default:
         return new Response(JSON.stringify({ error: "Invalid action" }), {
           status: 400,
