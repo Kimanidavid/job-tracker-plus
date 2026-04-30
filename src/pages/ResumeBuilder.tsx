@@ -708,6 +708,7 @@ Return the complete updated CV.`;
     }
   };
 
+  const keepPendingChanges = () => {
     setPendingEdit(null);
     if (selectedResumeId || resumeContent.trim()) {
       // Persist as base resume content from current sections
