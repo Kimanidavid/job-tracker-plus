@@ -114,8 +114,10 @@ export async function exportToDocx(
     sections: [{
       properties: {
         page: {
+          // US Letter; we use a 0-margin page so the header/stripe can be edge-to-edge.
+          // Body padding (1" T/B, 0.6" L/R) is applied via the body cell margins below.
           size: { width: PAGE_W, height: 15840 },
-          margin: { top: 0, right: 0, bottom: 400, left: 0 },
+          margin: { top: 0, right: 0, bottom: 0, left: 0 },
         },
       },
       children: [
