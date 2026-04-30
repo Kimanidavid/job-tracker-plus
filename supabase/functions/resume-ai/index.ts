@@ -207,6 +207,44 @@ Return ONLY the improved resume text, no explanations.`;
       body.tool_choice = { type: "function", function: { name: "score_resume" } };
     }
 
+    // Tool calling for generate_skills action
+    if (action === "generate_skills") {
+      body.tools = [
+        {
+          type: "function",
+          function: {
+            name: "generate_skills",
+            description: "Return a categorized Skills section inferred from the candidate's resume",
+            parameters: {
+              type: "object",
+              properties: {
+                categories: {
+                  type: "array",
+                  description: "Skill categories (3-7 categories typical). Each category has a label and a list of concise skill items.",
+                  items: {
+                    type: "object",
+                    properties: {
+                      label: { type: "string", description: "Category name, e.g. 'Languages', 'Frameworks & Libraries', 'Cloud & DevOps'" },
+                      items: {
+                        type: "array",
+                        items: { type: "string" },
+                        description: "Concise skill names within this category"
+                      }
+                    },
+                    required: ["label", "items"],
+                    additionalProperties: false
+                  }
+                }
+              },
+              required: ["categories"],
+              additionalProperties: false
+            }
+          }
+        }
+      ];
+      body.tool_choice = { type: "function", function: { name: "generate_skills" } };
+    }
+
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
