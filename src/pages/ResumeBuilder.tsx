@@ -119,7 +119,7 @@ export default function ResumeBuilder() {
   } = useResumes();
 
   // ── Top-level navigation state ──
-  const [view, setView] = useState<ViewMode>('landing');
+  const [view, setView] = useState<ViewMode>('editor');
   const [editorMode, setEditorMode] = useState<EditorMode>('base');
   const [landingTab, setLandingTab] = useState<'all' | 'base' | 'tailored'>('all');
   const [search, setSearch] = useState('');
