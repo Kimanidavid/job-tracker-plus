@@ -326,6 +326,17 @@ export default function CareerAgent() {
     }
   }, []);
 
+  // Interview Mode: when the assistant has finished speaking, auto-start the mic
+  // for hands-free Q&A. Only triggers on the trailing assistant message.
+  useEffect(() => {
+    if (!interviewMode) return;
+    if (isSpeaking || isLoading || isRecording) return;
+    const last = messages[messages.length - 1];
+    if (!last || last.role !== 'assistant') return;
+    const t = setTimeout(() => { if (interviewModeRef.current) startRecording(); }, 400);
+    return () => clearTimeout(t);
+  }, [interviewMode, isSpeaking, isLoading, isRecording, messages, startRecording]);
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
