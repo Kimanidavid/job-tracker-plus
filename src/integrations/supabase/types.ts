@@ -216,6 +216,66 @@ export type Database = {
           },
         ]
       }
+      tracked_jobs: {
+        Row: {
+          applied_at: string | null
+          company: string | null
+          created_at: string
+          description: string | null
+          external_id: string | null
+          id: string
+          keywords: string | null
+          location: string | null
+          notes: string | null
+          posted_at: string | null
+          score: number | null
+          source: string | null
+          status: string
+          title: string
+          updated_at: string
+          url: string | null
+          user_id: string
+        }
+        Insert: {
+          applied_at?: string | null
+          company?: string | null
+          created_at?: string
+          description?: string | null
+          external_id?: string | null
+          id?: string
+          keywords?: string | null
+          location?: string | null
+          notes?: string | null
+          posted_at?: string | null
+          score?: number | null
+          source?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          url?: string | null
+          user_id: string
+        }
+        Update: {
+          applied_at?: string | null
+          company?: string | null
+          created_at?: string
+          description?: string | null
+          external_id?: string | null
+          id?: string
+          keywords?: string | null
+          location?: string | null
+          notes?: string | null
+          posted_at?: string | null
+          score?: number | null
+          source?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          url?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

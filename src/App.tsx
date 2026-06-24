@@ -8,6 +8,7 @@ import Dashboard from "./pages/Dashboard";
 import JobTracker from "./pages/JobTracker";
 import ResumeBuilder from "./pages/ResumeBuilder";
 import AutopilotSearch from "./pages/AutopilotSearch";
+import JobDetail from "./pages/JobDetail";
 import FollowUpManager from "./pages/FollowUpManager";
 import CareerAgent from "./pages/CareerAgent";
 import Analytics from "./pages/Analytics";
@@ -30,6 +31,8 @@ const App = () => (
           <Route path="/tracker" element={<AppLayout><JobTracker /></AppLayout>} />
           <Route path="/resume" element={<AppLayout><ResumeBuilder /></AppLayout>} />
           <Route path="/autopilot" element={<AppLayout><AutopilotSearch /></AppLayout>} />
+          <Route path="/jobs/:id" element={<AppLayout><JobDetail /></AppLayout>} />
+          <Route path="/jobs/external/:extId" element={<AppLayout><JobDetail /></AppLayout>} />
           <Route path="/followups" element={<AppLayout><FollowUpManager /></AppLayout>} />
           <Route path="/agent" element={<AppLayout><CareerAgent /></AppLayout>} />
           <Route path="/analytics" element={<AppLayout><Analytics /></AppLayout>} />

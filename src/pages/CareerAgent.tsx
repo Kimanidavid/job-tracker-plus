@@ -122,12 +122,16 @@ export default function CareerAgent() {
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [ttsMode, setTtsMode] = useState<'elevenlabs' | 'browser'>('elevenlabs');
+  const [interviewMode, setInterviewMode] = useState(false);
+  const interviewModeRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const { toast } = useToast();
+
+  useEffect(() => { interviewModeRef.current = interviewMode; }, [interviewMode]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -322,6 +326,17 @@ export default function CareerAgent() {
     }
   }, []);
 
+  // Interview Mode: when the assistant has finished speaking, auto-start the mic
+  // for hands-free Q&A. Only triggers on the trailing assistant message.
+  useEffect(() => {
+    if (!interviewMode) return;
+    if (isSpeaking || isLoading || isRecording) return;
+    const last = messages[messages.length - 1];
+    if (!last || last.role !== 'assistant') return;
+    const t = setTimeout(() => { if (interviewModeRef.current) startRecording(); }, 400);
+    return () => clearTimeout(t);
+  }, [interviewMode, isSpeaking, isLoading, isRecording, messages, startRecording]);
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -355,6 +370,26 @@ export default function CareerAgent() {
         >
           {voiceEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
           {voiceEnabled ? 'Voice On' : 'Voice Off'}
+        </Button>
+        <Button
+          variant={interviewMode ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => {
+            const next = !interviewMode;
+            setInterviewMode(next);
+            if (next && !voiceEnabled) setVoiceEnabled(true);
+            if (!next) { stopRecording(); stopSpeaking(); }
+            toast({
+              title: next ? 'Interview Mode on' : 'Interview Mode off',
+              description: next
+                ? 'Hands-free: mic auto-opens after each reply. Tap mic to interrupt.'
+                : 'Push-to-talk restored.',
+            });
+          }}
+          className="gap-2 ml-2"
+        >
+          <Mic className="w-4 h-4" />
+          {interviewMode ? 'Interview Mode' : 'Interview Mode'}
         </Button>
       </div>
 
