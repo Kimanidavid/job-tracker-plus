@@ -122,12 +122,16 @@ export default function CareerAgent() {
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [ttsMode, setTtsMode] = useState<'elevenlabs' | 'browser'>('elevenlabs');
+  const [interviewMode, setInterviewMode] = useState(false);
+  const interviewModeRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const { toast } = useToast();
+
+  useEffect(() => { interviewModeRef.current = interviewMode; }, [interviewMode]);
 
   useEffect(() => {
     if (scrollRef.current) {
