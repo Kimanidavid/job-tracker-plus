@@ -371,6 +371,26 @@ export default function CareerAgent() {
           {voiceEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
           {voiceEnabled ? 'Voice On' : 'Voice Off'}
         </Button>
+        <Button
+          variant={interviewMode ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => {
+            const next = !interviewMode;
+            setInterviewMode(next);
+            if (next && !voiceEnabled) setVoiceEnabled(true);
+            if (!next) { stopRecording(); stopSpeaking(); }
+            toast({
+              title: next ? 'Interview Mode on' : 'Interview Mode off',
+              description: next
+                ? 'Hands-free: mic auto-opens after each reply. Tap mic to interrupt.'
+                : 'Push-to-talk restored.',
+            });
+          }}
+          className="gap-2 ml-2"
+        >
+          <Mic className="w-4 h-4" />
+          {interviewMode ? 'Interview Mode' : 'Interview Mode'}
+        </Button>
       </div>
 
       {/* Chat area */}
