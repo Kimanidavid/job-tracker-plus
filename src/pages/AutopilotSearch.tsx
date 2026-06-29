@@ -76,7 +76,7 @@ export default function AutopilotSearch() {
     setResults([]);
     try {
       const { data, error } = await supabase.functions.invoke('linkedin-jobs', {
-        body: { keywords: keywords.trim(), location: location.trim(), rows: 25 },
+        body: { keywords: keywords.trim(), location: location.trim(), rows: 25, postedWithinDays },
       });
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
