@@ -55,8 +55,9 @@ export default function AutopilotSearch() {
     [tracked],
   );
 
-  // Pre-fill keywords from the latest base resume
+  // Pre-fill keywords from the latest base resume (only if no cached search)
   useEffect(() => {
+    if (cached?.keywords) return;
     (async () => {
       const { data } = await supabase
         .from('resumes')
@@ -70,7 +71,16 @@ export default function AutopilotSearch() {
         if (kw) setKeywords(kw);
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Persist search state across navigation
+  useEffect(() => {
+    if (results.length === 0 && !keywords) return;
+    try {
+      sessionStorage.setItem(CACHE_KEY, JSON.stringify({ keywords, location, postedWithinDays, results }));
+    } catch {}
+  }, [keywords, location, postedWithinDays, results]);
 
   const runSearch = async () => {
     if (!keywords.trim()) {
