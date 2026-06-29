@@ -36,12 +36,17 @@ function extractRoleKeywords(text: string): string {
   return m?.[0] ?? '';
 }
 
+const CACHE_KEY = 'autopilot:lastSearch';
+
 export default function AutopilotSearch() {
-  const [keywords, setKeywords] = useState('');
-  const [location, setLocation] = useState('');
-  const [postedWithinDays, setPostedWithinDays] = useState<number>(4);
+  const cached = (() => {
+    try { return JSON.parse(sessionStorage.getItem(CACHE_KEY) || 'null'); } catch { return null; }
+  })();
+  const [keywords, setKeywords] = useState<string>(cached?.keywords ?? '');
+  const [location, setLocation] = useState<string>(cached?.location ?? '');
+  const [postedWithinDays, setPostedWithinDays] = useState<number>(cached?.postedWithinDays ?? 4);
   const [loading, setLoading] = useState(false);
-  const [results, setResults] = useState<ApiJob[]>([]);
+  const [results, setResults] = useState<ApiJob[]>(cached?.results ?? []);
   const { toast } = useToast();
   const navigate = useNavigate();
   const { tracked, track, remove } = useTrackedJobs();
