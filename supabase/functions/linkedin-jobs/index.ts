@@ -120,7 +120,17 @@ Deno.serve(async (req) => {
       source: 'linkedin',
     })).filter(j => j.title && j.url);
 
-    return new Response(JSON.stringify({ jobs, count: jobs.length }), {
+    // Secondary filter: drop jobs older than the freshness window when we have a parseable date
+    const cutoffMs = postedWithinDays > 0 ? Date.now() - postedWithinDays * 86400 * 1000 : 0;
+    const filtered = cutoffMs
+      ? jobs.filter(j => {
+          if (!j.posted_at) return true; // keep if unknown
+          const t = Date.parse(j.posted_at);
+          return Number.isNaN(t) ? true : t >= cutoffMs;
+        })
+      : jobs;
+
+    return new Response(JSON.stringify({ jobs: filtered, count: filtered.length }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (err) {
