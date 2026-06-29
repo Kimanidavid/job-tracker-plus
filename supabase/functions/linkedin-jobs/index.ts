@@ -10,6 +10,7 @@ interface Body {
   keywords: string;
   location?: string;
   rows?: number;
+  postedWithinDays?: number; // freshness filter, default 4
 }
 
 interface Job {
