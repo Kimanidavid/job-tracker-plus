@@ -39,6 +39,7 @@ function extractRoleKeywords(text: string): string {
 export default function AutopilotSearch() {
   const [keywords, setKeywords] = useState('');
   const [location, setLocation] = useState('');
+  const [postedWithinDays, setPostedWithinDays] = useState<number>(4);
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<ApiJob[]>([]);
   const { toast } = useToast();
