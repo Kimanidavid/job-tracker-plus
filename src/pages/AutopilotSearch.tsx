@@ -151,7 +151,7 @@ export default function AutopilotSearch() {
 
       <Card>
         <CardContent className="pt-6 space-y-3">
-          <div className="grid gap-3 md:grid-cols-[2fr_1fr_auto]">
+          <div className="grid gap-3 md:grid-cols-[2fr_1fr_180px_auto]">
             <Input
               placeholder="Role or keywords (e.g. Senior Frontend Engineer)"
               value={keywords}
@@ -159,11 +159,24 @@ export default function AutopilotSearch() {
               onKeyDown={(e) => e.key === 'Enter' && runSearch()}
             />
             <Input
-              placeholder="Location (optional)"
+              placeholder="Location (e.g. London, Remote)"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && runSearch()}
             />
+            <Select value={String(postedWithinDays)} onValueChange={(v) => setPostedWithinDays(Number(v))}>
+              <SelectTrigger>
+                <SelectValue placeholder="Posted within" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">Past 24 hours</SelectItem>
+                <SelectItem value="2">Past 2 days</SelectItem>
+                <SelectItem value="4">Past 4 days</SelectItem>
+                <SelectItem value="7">Past week</SelectItem>
+                <SelectItem value="14">Past 2 weeks</SelectItem>
+                <SelectItem value="30">Past month</SelectItem>
+              </SelectContent>
+            </Select>
             <Button onClick={runSearch} disabled={loading} className="gap-2">
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
               Search
