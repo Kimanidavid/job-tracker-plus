@@ -1,12 +1,10 @@
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 
-// Calls Apify's LinkedIn Jobs Scraper actor synchronously and returns normalized rows.
-// Actor: bebity/linkedin-jobs-scraper  (slug `bebity~linkedin-jobs-scraper`)
-// Input shape: { title, location, rows }
-// Output items expose at least: title, companyName, location, link, descriptionHtml, postedTime
+// Apify LinkedIn Jobs scraper (actor id: hKByXkMQaC5Qt9UMN)
+// Input: { urls: [linkedin search url], scrapeCompany, count, splitByLocation }
 
 const APIFY_TOKEN = Deno.env.get('APIFY_API_TOKEN');
-const ACTOR = 'bebity~linkedin-jobs-scraper';
+const ACTOR_ID = 'hKByXkMQaC5Qt9UMN';
 
 interface Body {
   keywords: string;
@@ -38,6 +36,16 @@ function stripHtml(html: string): string {
     .trim();
 }
 
+function buildLinkedInUrl(keywords: string, location: string): string {
+  const params = new URLSearchParams({
+    keywords,
+    position: '1',
+    pageNum: '0',
+  });
+  if (location) params.set('location', location);
+  return `https://www.linkedin.com/jobs/search/?${params.toString()}`;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
@@ -57,28 +65,29 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    const rows = Math.min(Math.max(body.rows ?? 25, 1), 50);
+    const count = Math.min(Math.max(body.rows ?? 25, 1), 100);
     const location = (body.location || '').trim();
 
-    const url = `https://api.apify.com/v2/acts/${ACTOR}/run-sync-get-dataset-items?timeout=120`;
+    const input = {
+      urls: [buildLinkedInUrl(keywords, location)],
+      scrapeCompany: true,
+      count,
+      splitByLocation: false,
+    };
+
+    const url = `https://api.apify.com/v2/acts/${ACTOR_ID}/run-sync-get-dataset-items?timeout=180`;
     const resp = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${APIFY_TOKEN}`,
       },
-      body: JSON.stringify({
-        title: keywords,
-        location: location || 'Worldwide',
-        rows,
-        publishedAt: 'r604800', // last 7 days
-      }),
+      body: JSON.stringify(input),
     });
 
     if (resp.status === 401) {
-      console.error('Apify 401 — token rejected. Token length:', APIFY_TOKEN.length);
       return new Response(
-        JSON.stringify({ error: 'Apify token rejected. Please update APIFY_API_TOKEN with a valid token from apify.com → Settings → Integrations.' }),
+        JSON.stringify({ error: 'Apify token rejected. Update APIFY_API_TOKEN with a valid token.' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
@@ -94,13 +103,13 @@ Deno.serve(async (req) => {
 
     const raw = (await resp.json()) as any[];
     const jobs: Job[] = (Array.isArray(raw) ? raw : []).map((r, i) => ({
-      external_id: r.id || r.jobUrl || r.link || `job-${Date.now()}-${i}`,
+      external_id: r.id || r.jobId || r.jobUrl || r.link || r.url || `job-${Date.now()}-${i}`,
       title: r.title || r.jobTitle || 'Untitled role',
-      company: r.companyName || r.company || '',
-      location: r.location || r.formattedLocation || '',
-      url: r.link || r.jobUrl || r.url || '',
-      description: stripHtml(r.descriptionHtml || r.description || ''),
-      posted_at: r.postedAt || r.publishedAt || r.postedTime || null,
+      company: r.companyName || r.company?.name || r.company || '',
+      location: r.location || r.formattedLocation || r.jobLocation || '',
+      url: r.jobUrl || r.link || r.url || '',
+      description: stripHtml(r.descriptionHtml || r.description || r.descriptionText || ''),
+      posted_at: r.postedAt || r.publishedAt || r.postedTime || r.postDate || null,
       source: 'linkedin',
     })).filter(j => j.title && j.url);
 
