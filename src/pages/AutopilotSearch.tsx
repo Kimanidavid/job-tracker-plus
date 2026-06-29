@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Search, Loader2, ExternalLink, Bookmark, BookmarkCheck, MapPin, Building2, Sparkles, Briefcase,
 } from 'lucide-react';
@@ -38,6 +39,7 @@ function extractRoleKeywords(text: string): string {
 export default function AutopilotSearch() {
   const [keywords, setKeywords] = useState('');
   const [location, setLocation] = useState('');
+  const [postedWithinDays, setPostedWithinDays] = useState<number>(4);
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<ApiJob[]>([]);
   const { toast } = useToast();
@@ -74,7 +76,7 @@ export default function AutopilotSearch() {
     setResults([]);
     try {
       const { data, error } = await supabase.functions.invoke('linkedin-jobs', {
-        body: { keywords: keywords.trim(), location: location.trim(), rows: 25 },
+        body: { keywords: keywords.trim(), location: location.trim(), rows: 25, postedWithinDays },
       });
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
@@ -149,7 +151,7 @@ export default function AutopilotSearch() {
 
       <Card>
         <CardContent className="pt-6 space-y-3">
-          <div className="grid gap-3 md:grid-cols-[2fr_1fr_auto]">
+          <div className="grid gap-3 md:grid-cols-[2fr_1fr_180px_auto]">
             <Input
               placeholder="Role or keywords (e.g. Senior Frontend Engineer)"
               value={keywords}
@@ -157,11 +159,24 @@ export default function AutopilotSearch() {
               onKeyDown={(e) => e.key === 'Enter' && runSearch()}
             />
             <Input
-              placeholder="Location (optional)"
+              placeholder="Location (e.g. London, Remote)"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && runSearch()}
             />
+            <Select value={String(postedWithinDays)} onValueChange={(v) => setPostedWithinDays(Number(v))}>
+              <SelectTrigger>
+                <SelectValue placeholder="Posted within" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">Past 24 hours</SelectItem>
+                <SelectItem value="2">Past 2 days</SelectItem>
+                <SelectItem value="4">Past 4 days</SelectItem>
+                <SelectItem value="7">Past week</SelectItem>
+                <SelectItem value="14">Past 2 weeks</SelectItem>
+                <SelectItem value="30">Past month</SelectItem>
+              </SelectContent>
+            </Select>
             <Button onClick={runSearch} disabled={loading} className="gap-2">
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
               Search

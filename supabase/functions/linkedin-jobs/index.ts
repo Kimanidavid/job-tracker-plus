@@ -10,6 +10,7 @@ interface Body {
   keywords: string;
   location?: string;
   rows?: number;
+  postedWithinDays?: number; // freshness filter, default 4
 }
 
 interface Job {
@@ -36,13 +37,18 @@ function stripHtml(html: string): string {
     .trim();
 }
 
-function buildLinkedInUrl(keywords: string, location: string): string {
+function buildLinkedInUrl(keywords: string, location: string, postedWithinDays: number): string {
   const params = new URLSearchParams({
     keywords,
     position: '1',
     pageNum: '0',
+    sortBy: 'DD', // sort by date (most recent first)
   });
   if (location) params.set('location', location);
+  if (postedWithinDays > 0) {
+    // LinkedIn time-posted-range: r{seconds}
+    params.set('f_TPR', `r${Math.round(postedWithinDays * 86400)}`);
+  }
   return `https://www.linkedin.com/jobs/search/?${params.toString()}`;
 }
 
@@ -67,9 +73,10 @@ Deno.serve(async (req) => {
     }
     const count = Math.min(Math.max(body.rows ?? 25, 1), 100);
     const location = (body.location || '').trim();
+    const postedWithinDays = Math.min(Math.max(body.postedWithinDays ?? 4, 0), 30);
 
     const input = {
-      urls: [buildLinkedInUrl(keywords, location)],
+      urls: [buildLinkedInUrl(keywords, location, postedWithinDays)],
       scrapeCompany: true,
       count,
       splitByLocation: false,
@@ -113,7 +120,17 @@ Deno.serve(async (req) => {
       source: 'linkedin',
     })).filter(j => j.title && j.url);
 
-    return new Response(JSON.stringify({ jobs, count: jobs.length }), {
+    // Secondary filter: drop jobs older than the freshness window when we have a parseable date
+    const cutoffMs = postedWithinDays > 0 ? Date.now() - postedWithinDays * 86400 * 1000 : 0;
+    const filtered = cutoffMs
+      ? jobs.filter(j => {
+          if (!j.posted_at) return true; // keep if unknown
+          const t = Date.parse(j.posted_at);
+          return Number.isNaN(t) ? true : t >= cutoffMs;
+        })
+      : jobs;
+
+    return new Response(JSON.stringify({ jobs: filtered, count: filtered.length }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (err) {
