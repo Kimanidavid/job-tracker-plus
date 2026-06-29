@@ -60,10 +60,13 @@ Deno.serve(async (req) => {
     const rows = Math.min(Math.max(body.rows ?? 25, 1), 50);
     const location = (body.location || '').trim();
 
-    const url = `https://api.apify.com/v2/acts/${ACTOR}/run-sync-get-dataset-items?token=${APIFY_TOKEN}&timeout=120`;
+    const url = `https://api.apify.com/v2/acts/${ACTOR}/run-sync-get-dataset-items?timeout=120`;
     const resp = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${APIFY_TOKEN}`,
+      },
       body: JSON.stringify({
         title: keywords,
         location: location || 'Worldwide',
@@ -71,6 +74,14 @@ Deno.serve(async (req) => {
         publishedAt: 'r604800', // last 7 days
       }),
     });
+
+    if (resp.status === 401) {
+      console.error('Apify 401 — token rejected. Token length:', APIFY_TOKEN.length);
+      return new Response(
+        JSON.stringify({ error: 'Apify token rejected. Please update APIFY_API_TOKEN with a valid token from apify.com → Settings → Integrations.' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
 
     if (!resp.ok) {
       const text = await resp.text().catch(() => '');
