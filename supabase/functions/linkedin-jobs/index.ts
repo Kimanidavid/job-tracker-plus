@@ -37,13 +37,18 @@ function stripHtml(html: string): string {
     .trim();
 }
 
-function buildLinkedInUrl(keywords: string, location: string): string {
+function buildLinkedInUrl(keywords: string, location: string, postedWithinDays: number): string {
   const params = new URLSearchParams({
     keywords,
     position: '1',
     pageNum: '0',
+    sortBy: 'DD', // sort by date (most recent first)
   });
   if (location) params.set('location', location);
+  if (postedWithinDays > 0) {
+    // LinkedIn time-posted-range: r{seconds}
+    params.set('f_TPR', `r${Math.round(postedWithinDays * 86400)}`);
+  }
   return `https://www.linkedin.com/jobs/search/?${params.toString()}`;
 }
 
