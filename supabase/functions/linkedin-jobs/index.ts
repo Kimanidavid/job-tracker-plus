@@ -73,9 +73,10 @@ Deno.serve(async (req) => {
     }
     const count = Math.min(Math.max(body.rows ?? 25, 1), 100);
     const location = (body.location || '').trim();
+    const postedWithinDays = Math.min(Math.max(body.postedWithinDays ?? 4, 0), 30);
 
     const input = {
-      urls: [buildLinkedInUrl(keywords, location)],
+      urls: [buildLinkedInUrl(keywords, location, postedWithinDays)],
       scrapeCompany: true,
       count,
       splitByLocation: false,
