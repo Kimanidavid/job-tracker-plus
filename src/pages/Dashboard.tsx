@@ -69,7 +69,6 @@ export default function Dashboard() {
   }, [applications]);
 
   const aiTools = [
-    { title: 'AI Resume Builder', desc: 'Tailor your resume with AI', icon: FileText, route: '/resume', color: 'text-primary' },
     { title: 'Autopilot Search', desc: 'Find matching jobs automatically', icon: Search, route: '/autopilot', color: 'text-status-interview' },
     { title: 'Follow-up Manager', desc: 'Draft follow-up emails with AI', icon: Mail, route: '/followups', color: 'text-status-offer' },
     { title: 'AI Career Agent', desc: 'Chat with your career assistant', icon: Bot, route: '/agent', color: 'text-status-review' },

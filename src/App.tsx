@@ -6,7 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import Dashboard from "./pages/Dashboard";
 import JobTracker from "./pages/JobTracker";
-import ResumeBuilder from "./pages/ResumeBuilder";
+
 import AutopilotSearch from "./pages/AutopilotSearch";
 import JobDetail from "./pages/JobDetail";
 import FollowUpManager from "./pages/FollowUpManager";
@@ -29,7 +29,7 @@ const App = () => (
           <Route path="/auth" element={<Auth />} />
           <Route path="/dashboard" element={<AppLayout><Dashboard /></AppLayout>} />
           <Route path="/tracker" element={<AppLayout><JobTracker /></AppLayout>} />
-          <Route path="/resume" element={<AppLayout><ResumeBuilder /></AppLayout>} />
+          
           <Route path="/autopilot" element={<AppLayout><AutopilotSearch /></AppLayout>} />
           <Route path="/jobs/:id" element={<AppLayout><JobDetail /></AppLayout>} />
           <Route path="/jobs/external/:extId" element={<AppLayout><JobDetail /></AppLayout>} />
