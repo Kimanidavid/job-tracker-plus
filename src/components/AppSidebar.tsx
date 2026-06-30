@@ -1,7 +1,6 @@
 import {
   LayoutDashboard,
   Kanban,
-  FileText,
   Search,
   Mail,
   Bot,
@@ -30,7 +29,6 @@ import { Button } from '@/components/ui/button';
 const mainNav = [
   { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
   { title: 'Job Tracker', url: '/tracker', icon: Kanban },
-  { title: 'AI Resume Builder', url: '/resume', icon: FileText },
   { title: 'Autopilot Search', url: '/autopilot', icon: Search },
 ];
 
